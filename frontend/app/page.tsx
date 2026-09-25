@@ -15,7 +15,6 @@ import {
   Send,
   Sparkles,
   Trash2,
-  WandSparkles,
   Waves
 } from "lucide-react";
 import { demoChatAnswer, isDemoModeEnabled } from "@/lib/demo";
@@ -168,13 +167,14 @@ type KnowledgeGraphNode = {
   label: string;
   x: number;
   y: number;
-  tier: "core" | "satellite";
 };
 
 type KnowledgeGraphEdge = {
   from: string;
   to: string;
   label: string;
+  strength: "strong" | "related" | "weak";
+  explanation: string;
 };
 
 type InboxItem =
@@ -190,7 +190,6 @@ type InboxItem =
         summary: string;
         nodes: KnowledgeGraphNode[];
         edges: KnowledgeGraphEdge[];
-        chips: string[];
       };
     }
   | {
@@ -254,116 +253,71 @@ const parseStages = [
   "Preparing Inspiration memory..."
 ];
 
-const legacyCards = [
-  "1. Add a podcast, video, image, or note.",
-  "2. Choose the ideas worth keeping.",
-  "3. Ask questions and discover connections later."
-];
-
 const presetIslandModules = [
   {
-    id: "compounding-systems",
-    label: "Compounding Systems",
-    role: "main" as const,
-    summary:
-      "Across the finance, business, and AI material already parsed in this demo, the same pattern keeps showing up: strong systems compound because they turn noisy signals into repeatable review loops, explicit checkpoints, and reusable decisions.",
-    details: [
-      "Finance podcasts framed cash, duration, and refinancing risk as system constraints rather than one-off market calls.",
-      "Business podcasts emphasized operating cadence, written decision capture, and ICP discipline as organizational compounding loops.",
-      "AI podcasts translated the same idea into evaluation harnesses, retrieval checkpoints, and explicit fallback behavior.",
-      "The shared lesson is that compounding comes from feedback architecture, not from more raw information."
-    ]
+    id: "capital-cash",
+    label: "Capital & Cash",
+    domain: "Finance",
+    keywords: ["cash", "rate", "debt", "interest", "refinanc", "capital", "maturity", "collections"],
+    summary: "Rates, cash flow, and refinancing timing from the finance source."
   },
   {
-    id: "capital-discipline",
-    label: "Capital Discipline",
-    role: "small" as const,
-    summary:
-      "The finance material converged on one operating truth: higher rates punish sloppy timing. The strongest teams treat cash, debt maturity, and payback windows as active strategic levers, not passive reporting lines.",
-    details: [
-      "Track free cash flow after interest expense, not just EBITDA, when stress-testing resilience.",
-      "Make the refinancing wall visible 12 to 18 months ahead so risk shows up before runway panic.",
-      "Treat short-duration cash yield as optionality that can buy product and pricing time.",
-      "Connect roadmap bets to payback assumptions when the cost of capital rises."
-    ]
+    id: "operating-rhythm",
+    label: "Operating Rhythm",
+    domain: "Business",
+    keywords: ["review", "metric", "checkpoint", "memo", "decision", "pricing", "onboarding", "owner"],
+    summary: "Decisions, checkpoints, and written reviews from the business source."
   },
   {
-    id: "operating-cadence",
-    label: "Operating Cadence",
-    role: "small" as const,
-    summary:
-      "The business podcasts were unusually consistent: great companies do not win with more meetings, they win with tighter operating rhythm. Decision ownership, metric clarity, and memo-based continuity outperform noisy coordination.",
-    details: [
-      "A useful operating review ends with one owner, one metric, and one next checkpoint.",
-      "ICP discipline usually erodes before demand does, so watch customer mix before top-of-funnel vanity.",
-      "Packaging changes land better when sales has a migration story, not just a new price sheet.",
-      "Weekly written memos compound faster than occasional strategy decks because they preserve decision sequence."
-    ]
+    id: "ai-infrastructure",
+    label: "AI Infrastructure",
+    domain: "AI",
+    keywords: ["agent", "eval", "checkpoint", "fallback", "groundedness", "latency"],
+    summary: "Agent checkpoints, evaluations, and fallbacks from the AI source."
   },
   {
-    id: "ai-reliability",
-    label: "AI Reliability",
-    role: "small" as const,
-    summary:
-      "The AI sources all pointed to the same practical takeaway: reliable systems come from curation, evaluation, and bounded agent behavior long before they come from frontier model upgrades.",
-    details: [
-      "Retrieval quality usually breaks on curation and ranking before it breaks on model size.",
-      "Agent flows need observable checkpoints where the system can stop, show evidence, and ask for confirmation.",
-      "Eval sets should target user-visible failures: groundedness, latency, refusal quality, and recovery.",
-      "Fine-tuning is a later-stage compression tool, not a shortcut around weak product structure."
-    ]
-  },
-  {
-    id: "knowledge-transfer",
-    label: "Knowledge Transfer",
-    role: "small" as const,
-    summary:
-      "What makes this demo feel valuable is not that it stores three podcast domains separately, but that it turns them into portable decision patterns. The product becomes useful when insights from one domain can pressure-test another.",
-    details: [
-      "A finance note about margin compression can sharpen an AI infra conversation about inference cost discipline.",
-      "A business lesson about operating cadence maps directly onto model eval review rituals.",
-      "Serendipity pushes work best when they surface a reusable analogy, not just a keyword match.",
-      "Cross-domain memory is most valuable when it reframes the current decision, not when it restates the archive."
-    ]
+    id: "llm-models",
+    label: "LLM Models",
+    domain: "AI",
+    keywords: ["model", "fine-tun", "prompt", "weights", "frontier"],
+    summary: "Model choices and fine-tuning tradeoffs from the AI source."
   }
 ];
 
-const islandDomains: Record<string, string[]> = {
-  "compounding-systems": ["Finance", "Business", "AI"],
-  "capital-discipline": ["Finance"],
-  "operating-cadence": ["Business"],
-  "ai-reliability": ["AI"],
-  "knowledge-transfer": ["Finance", "Business", "AI"]
+const compactTopicLabels: Record<string, string> = {
+  "capital-cash": "Capital",
+  "operating-rhythm": "Operations",
+  "ai-infrastructure": "AI Infra",
+  "llm-models": "LLM"
 };
 
+function matchesTopicKeywords(text: string, keywords: string[]): boolean {
+  return keywords.some((keyword) => new RegExp(`(?:^|[^a-z])${keyword}`, "i").test(text));
+}
+
 const presetKnowledgeGraph = {
-  title: "20:00 Knowledge Graph Refresh",
-  summary:
-    "Tonight's agent run merged three parsed podcast domains into one synthesis graph. Finance contributes capital discipline, business contributes operating cadence, AI contributes reliability design, and all three converge on compounding systems.",
+  title: "Knowledge connections",
+  summary: "Topics from three saved sources, with different levels of connection.",
   nodes: [
-    { id: "compounding-systems", label: "Compounding Systems", x: 50, y: 48, tier: "core" as const },
-    { id: "capital-discipline", label: "Capital Discipline", x: 20, y: 22, tier: "satellite" as const },
-    { id: "operating-cadence", label: "Operating Cadence", x: 78, y: 20, tier: "satellite" as const },
-    { id: "ai-reliability", label: "AI Reliability", x: 78, y: 78, tier: "satellite" as const },
-    { id: "knowledge-transfer", label: "Knowledge Transfer", x: 22, y: 80, tier: "satellite" as const }
+    { id: "capital-cash", label: "Capital & Cash", x: 27, y: 23 },
+    { id: "operating-rhythm", label: "Operating Rhythm", x: 73, y: 23 },
+    { id: "ai-infrastructure", label: "AI Infrastructure", x: 27, y: 75 },
+    { id: "llm-models", label: "LLM Models", x: 73, y: 75 }
   ],
   edges: [
-    { from: "compounding-systems", to: "capital-discipline", label: "resource timing" },
-    { from: "compounding-systems", to: "operating-cadence", label: "review rhythm" },
-    { from: "compounding-systems", to: "ai-reliability", label: "eval loops" },
-    { from: "compounding-systems", to: "knowledge-transfer", label: "memory reuse" },
-    { from: "capital-discipline", to: "operating-cadence", label: "budget focus" },
-    { from: "operating-cadence", to: "ai-reliability", label: "inspection culture" }
+    { from: "ai-infrastructure", to: "llm-models", label: "AI system design", strength: "strong" as const, explanation: "The model note places fine-tuning after retrieval and workflow stabilization; the infrastructure notes spell out the evals and checkpoints needed first." },
+    { from: "operating-rhythm", to: "ai-infrastructure", label: "checkpoints", strength: "related" as const, explanation: "Business reviews and agent workflows both call for visible checkpoints, with an owner or a system decision at each step." },
+    { from: "capital-cash", to: "operating-rhythm", label: "decision timing", strength: "related" as const, explanation: "The finance notes ask teams to surface risk early; the business notes describe a review rhythm that makes those decisions actionable." },
+    { from: "capital-cash", to: "ai-infrastructure", label: "broader analogy", strength: "weak" as const, explanation: "Both sources discuss constraints, but these saved notes do not directly establish a finance-to-AI infrastructure relationship." }
   ],
-  chips: ["Nightly agent run", "20:00 schedule", "3 domains merged", "Cross-domain synthesis ready"]
 };
 
 const initialInboxItems: InboxItem[] = [
   {
     id: "graph-nightly-2000",
     kind: "graph",
-    title: "20:00 nightly graph is ready",
-    summary: "The agent turned finance, business, and AI listening into one linked synthesis graph for review.",
+    title: "Topic connections updated",
+    summary: "Four topics now show strong, related, and weak links.",
     createdAtLabel: "Scheduled for 20:00",
     unread: true,
     graph: presetKnowledgeGraph
@@ -375,7 +329,7 @@ const initialInboxItems: InboxItem[] = [
     summary: "A business note on packaging simplicity and a finance note on margin protection now point at the same pricing decision.",
     createdAtLabel: "Unread push · 09:12",
     unread: true,
-    relatedIsland: "Capital Discipline",
+    relatedIsland: "Capital & Cash",
     suggestion:
       "You're thinking about pricing. It may help to review two older memories together: one from the finance podcast on protecting margins in a high-rate environment, and one from the business podcast on how simpler packaging makes price changes easier to land.",
     evidence: [
@@ -390,7 +344,7 @@ const initialInboxItems: InboxItem[] = [
     summary: "A business lesson about weekly decision cadence lines up with the AI note on evaluation rituals and checkpointed agents.",
     createdAtLabel: "Unread push · 11:40",
     unread: true,
-    relatedIsland: "AI Reliability",
+    relatedIsland: "AI Infrastructure",
     suggestion:
       "You're asking about agent reliability, but this overlaps with your earlier note on weekly operating memos. Stable systems usually depend on a fixed review rhythm and explicit checkpoints.",
     evidence: [
@@ -490,19 +444,17 @@ const demoSeedSources: DemoSeedSource[] = [
 const presetInsightCluster: InsightClusterApi = {
   success: true,
   cluster_date: "2026-03-29",
-  title: "Tonight's synthesis: three domains collapsed into one operating pattern",
-  overview:
-    "Finance, business, and AI all converged on a surprisingly similar idea: the winning systems are the ones that make review loops visible early, keep resource constraints explicit, and turn experience into reusable decision memory.",
-  hidden_commonality:
-    "Across all three domains, compounding did not come from more activity. It came from better feedback architecture.",
+  title: "Connections across saved topics",
+  overview: "Four topics from three saved sources.",
+  hidden_commonality: "The AI topics connect closely; links to finance are less direct.",
   nodes: presetIslandModules.map((item) => ({
     label: item.label,
     summary: item.summary,
-    evidence: item.details
+    evidence: [item.summary]
   })),
   prompt_preview: {
-    system: "Nightly synthesis agent clusters parsed podcast memory into reusable operating themes.",
-    user: "Summarize the strongest hidden commonality across finance, business, and AI podcast fragments captured this week."
+    system: "Identify topics and evidence-backed relationships from saved material.",
+    user: "Show which saved topics are closely related and which connections remain weak."
   }
 };
 
@@ -737,7 +689,7 @@ function createPresetSerendipityInboxItem(seed: string): InboxItem | null {
       summary: "Your new idea touches pricing or margin. The stored finance material can anchor it in cash and capital timing instead of intuition alone.",
       createdAtLabel: "New push",
       unread: true,
-      relatedIsland: "Capital Discipline",
+      relatedIsland: "Capital & Cash",
       suggestion:
         "This idea is not only a business judgment. It can be validated against that earlier finance memory about protecting margins in a higher-rate environment. Do you want to review them together?",
       evidence: [
@@ -755,12 +707,12 @@ function createPresetSerendipityInboxItem(seed: string): InboxItem | null {
       summary: "The way you are framing this workflow overlaps with the stored AI notes on checkpointed agents and bounded handoffs.",
       createdAtLabel: "New push",
       unread: true,
-      relatedIsland: "AI Reliability",
+      relatedIsland: "AI Infrastructure",
       suggestion:
         "This workflow question is nearly the same thread as your earlier AI note on agent checkpoints. Do you want to open them side by side?",
       evidence: [
         "AI: agent workflows should expose checkpoints where the system can stop, show evidence, and ask for confirmation.",
-        "Knowledge Transfer: cross-domain memory helps when it reframes the current decision instead of repeating the archive."
+        "Business: weekly review memos keep decisions and follow-ups visible."
       ]
     };
   }
@@ -773,7 +725,7 @@ function createPresetSerendipityInboxItem(seed: string): InboxItem | null {
       summary: "This question is not only about process quality. A stored business note on weekly operating cadence can strengthen it.",
       createdAtLabel: "New push",
       unread: true,
-      relatedIsland: "Operating Cadence",
+      relatedIsland: "Operating Rhythm",
       suggestion:
         "You're asking about eval and review, but your earlier business note on weekly operating memos already offers the management layer for this problem.",
       evidence: [
@@ -787,16 +739,16 @@ function createPresetSerendipityInboxItem(seed: string): InboxItem | null {
     return {
       id: "push-transfer-match",
       kind: "push",
-      title: "A cross-domain pattern is hiding behind this",
-      summary: "The fresh note you are typing is broad enough that the most useful memory may be the bridge across domains, not a single matching clip.",
+      title: "An earlier model note fits here",
+      summary: "The saved AI source covers retrieval and ranking before model changes.",
       createdAtLabel: "New push",
       unread: true,
-      relatedIsland: "Knowledge Transfer",
+      relatedIsland: "LLM Models",
       suggestion:
-        "This question may be too broad for a single domain. Your earlier finance, business, and AI memories already combine into a transferable pattern worth reviewing together.",
+        "The earlier AI note suggests improving curation and ranking before changing the model. Review that source alongside this idea.",
       evidence: [
-        "Compounding Systems: compounding comes from feedback architecture, not more raw activity.",
-        "Knowledge Transfer: cross-domain memory is valuable when it pressure-tests today's decision."
+        "AI: retrieval quality is often constrained by curation and ranking first.",
+        "AI: fine-tuning should follow stable retrieval and workflow evaluation."
       ]
     };
   }
@@ -980,8 +932,9 @@ export default function Page() {
   const [serendipityHint, setSerendipityHint] = useState<string | null>(null);
   const [selectedIslandId, setSelectedIslandId] = useState(presetIslandModules[0].id);
   const [builderSourceId, setBuilderSourceId] = useState<string | null>(null);
-  const [inboxItems, setInboxItems] = useState<InboxItem[]>(initialInboxItems);
-  const [selectedInboxItemId, setSelectedInboxItemId] = useState<string>(initialInboxItems[0]?.id ?? "");
+  const [inboxItems, setInboxItems] = useState<InboxItem[]>(isDemoModeEnabled() ? initialInboxItems : []);
+  const [selectedInboxItemId, setSelectedInboxItemId] = useState<string>(isDemoModeEnabled() ? initialInboxItems[0]?.id ?? "" : "");
+  const [selectedConnectionIndex, setSelectedConnectionIndex] = useState(0);
 
   const pollTimerRef = useRef<number | null>(null);
   const triviaTimerRef = useRef<number | null>(null);
@@ -1254,11 +1207,11 @@ export default function Page() {
             summary: serendipityHint,
             createdAtLabel: "New push",
             unread: true,
-            relatedIsland: "LLM",
+            relatedIsland: "LLM Models",
             suggestion: serendipityHint,
             evidence: [
-              "LLM: the core model should synthesize across islands without flattening them.",
-              "Harness Engineering: memory-aware prompts should stay inspectable."
+              "AI: retrieval quality depends on curated and ranked sources.",
+              "AI: model changes should be tested against visible user failures."
             ]
           }
         : null);
@@ -1893,8 +1846,6 @@ export default function Page() {
   }, [podcasts]);
 
   const unreadInboxCount = useMemo(() => inboxItems.filter((item) => item.unread).length, [inboxItems]);
-  const unreadGraphCount = useMemo(() => inboxItems.filter((item) => item.kind === "graph" && item.unread).length, [inboxItems]);
-  const unreadPushCount = useMemo(() => inboxItems.filter((item) => item.kind === "push" && item.unread).length, [inboxItems]);
   const selectedInboxItem = useMemo(
     () => inboxItems.find((item) => item.id === selectedInboxItemId) ?? inboxItems[0] ?? null,
     [inboxItems, selectedInboxItemId]
@@ -1910,16 +1861,32 @@ export default function Page() {
   };
 
   const presetMainIsland = presetIslandModules[0];
-  const canvasLabels = presetIslandModules.map((item) => item.label);
   const selectedIsland = presetIslandModules.find((item) => item.id === selectedIslandId) ?? presetMainIsland;
-  const selectedIslandSources = podcasts.filter((podcast) => islandDomains[selectedIsland.id]?.includes(podcast.domain ?? ""));
-  const selectedIslandSourceIds = new Set(selectedIslandSources.map((podcast) => podcast.id));
   const selectedIslandTakeaways = takeaways.filter(
-    (item) => item.persisted && item.enabled && selectedIslandSourceIds.has(item.podcastId)
+    (item) =>
+      item.persisted &&
+      item.enabled &&
+      (item.domain ?? podcastById.get(item.podcastId)?.domain) === selectedIsland.domain &&
+      matchesTopicKeywords(item.text, selectedIsland.keywords)
   );
+  const selectedIslandSourceIds = new Set(selectedIslandTakeaways.map((item) => item.podcastId));
+  const selectedIslandSources = podcasts.filter((podcast) => selectedIslandSourceIds.has(podcast.id));
   const selectedIslandConversations = conversations.filter((conversation) =>
     conversation.podcastIds.some((podcastId) => selectedIslandSourceIds.has(podcastId))
   );
+  const topicsWithEvidence = presetIslandModules.filter((topic) =>
+    takeaways.some((item) =>
+      item.persisted && item.enabled &&
+      (item.domain ?? podcastById.get(item.podcastId)?.domain) === topic.domain &&
+      matchesTopicKeywords(item.text, topic.keywords)
+    )
+  );
+  const visibleTopicIds = new Set(topicsWithEvidence.map((topic) => topic.id));
+  const visibleMapNodes = presetKnowledgeGraph.nodes.filter((node) => visibleTopicIds.has(node.id));
+  const visibleMapEdges = isDemoMode
+    ? presetKnowledgeGraph.edges.filter((edge) => visibleTopicIds.has(edge.from) && visibleTopicIds.has(edge.to))
+    : [];
+  const selectedConnection = visibleMapEdges[selectedConnectionIndex] ?? visibleMapEdges[0] ?? null;
   const openIsland = (label: string) => {
     const island = presetIslandModules.find((item) => item.label === label);
     if (!island) {
@@ -1962,6 +1929,7 @@ export default function Page() {
     <main className="workspace-shell h-screen overflow-hidden bg-[#f1f5f3] px-4 py-4 text-slate-900 md:px-6">
       <div
         ref={layoutRef}
+        data-panel={activePanel}
         className="workspace-grid mx-auto grid h-full w-full max-w-[1720px] items-stretch gap-0"
         style={{ gridTemplateColumns: activePanel === "inbox" ? `${leftPaneWidth}px 12px minmax(0,1fr)` : `${leftPaneWidth}px 12px minmax(0,1fr) 12px ${rightPaneWidth}px` }}
       >
@@ -1987,14 +1955,14 @@ export default function Page() {
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#246b70,#3b8482)] px-4 py-3 text-sm font-semibold text-white transition hover:opacity-95"
               >
                 <Brain className="h-4 w-4" />
-                Curate memory {liveDraftCount > 0 ? <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">{liveDraftCount}</span> : null}
+                Memory {liveDraftCount > 0 ? <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">{liveDraftCount}</span> : null}
               </button>
               <button
                 onClick={() => openIsland(presetMainIsland.label)}
                 className="inline-flex items-center justify-center gap-2 rounded-full border border-[#dce5e8] bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-[#edf4f3]"
               >
                 <Sparkles className="h-4 w-4" />
-                Explore knowledge
+                Topics
               </button>
             </div>
           </div>
@@ -2039,19 +2007,10 @@ export default function Page() {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h1 className="text-2xl text-slate-900 md:text-[2rem]" style={{ fontFamily: "var(--font-heading)" }}>
-                    {activePanel === "builder" ? "Curate memory" : activePanel === "inbox" ? "Agent Inbox" : activePanel === "island" ? selectedIsland.label : "Your knowledge workspace"}
+                    {activePanel === "builder" ? "Memory" : activePanel === "inbox" ? "Inbox" : activePanel === "island" ? selectedIsland.label : "Chat"}
                   </h1>
-                  {isDemoMode ? <span className="rounded-full border border-[#6ba5ff]/30 bg-[#e5edf8] px-2.5 py-1 text-[11px] font-semibold text-[#315f69]">Example workspace</span> : null}
+                  {isDemoMode ? <span className="rounded-full border border-[#6ba5ff]/30 bg-[#e5edf8] px-2.5 py-1 text-[11px] font-semibold text-[#315f69]">Demo</span> : null}
                 </div>
-                <p className="mt-1 text-sm text-slate-600">
-                  {activePanel === "builder"
-                    ? "Choose which extracted ideas become part of your memory."
-                    : activePanel === "inbox"
-                      ? "Review new connections and knowledge graph updates."
-                      : activePanel === "island"
-                        ? "Explore the conversations and saved ideas behind this topic."
-                        : "Save useful ideas from any source, then ask questions grounded in what you kept."}
-                </p>
               </div>
               <div className="flex items-center gap-2">
                 {activePanel !== "inbox" ? (
@@ -2065,7 +2024,7 @@ export default function Page() {
                     className="relative inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#204169,#315f96)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-95"
                   >
                     <Bell className="h-4 w-4" />
-                    Agent Inbox
+                    Inbox
                     {unreadInboxCount > 0 ? (
                       <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[#df4b57] px-1 text-[10px] font-bold text-white">
                         {unreadInboxCount}
@@ -2090,33 +2049,9 @@ export default function Page() {
             {activePanel === "inbox" ? (
               <div className="mx-auto w-full max-w-[1220px] space-y-4">
                 <section className="rounded-[24px] border border-[#dce5e8] bg-white p-5 md:p-7">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#487881]">Recent updates</p>
-                      <p className="mt-1 text-sm text-slate-600">Select an update to read its evidence and next step.</p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs text-slate-700">
-                        Knowledge Graph
-                        {unreadGraphCount > 0 ? (
-                          <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[#df4b57] px-1 text-[10px] font-bold text-white">
-                            {unreadGraphCount}
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs text-slate-700">
-                        Serendipity Push
-                        {unreadPushCount > 0 ? (
-                          <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[#df4b57] px-1 text-[10px] font-bold text-white">
-                            {unreadPushCount}
-                          </span>
-                        ) : null}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-7 grid items-start gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
+                  <div className="grid items-start gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
                     <div className="space-y-2" aria-label="Inbox updates">
+                      {!inboxItems.length ? <p className="rounded-[18px] bg-[#f3f8f6] px-4 py-5 text-sm text-slate-600">No updates yet.</p> : null}
                       {inboxItems.map((item) => (
                         <button
                           key={item.id}
@@ -2130,14 +2065,13 @@ export default function Page() {
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#487881]">
-                                {item.kind === "graph" ? "Knowledge Graph" : "Serendipity Push"}
+                                {item.kind === "graph" ? "Map" : "Connection"}
                               </p>
                               <p className="mt-2 text-sm font-semibold text-slate-900">{item.title}</p>
                               <p className="mt-1 text-xs text-slate-500">{item.createdAtLabel}</p>
                             </div>
                             {item.unread ? <span className="mt-1 h-2.5 w-2.5 rounded-full bg-[#df4b57]" /> : null}
                           </div>
-                          <p className="mt-2 line-clamp-1 text-xs leading-relaxed text-slate-600">{item.summary}</p>
                         </button>
                       ))}
                     </div>
@@ -2147,52 +2081,40 @@ export default function Page() {
                         <article className="min-w-0 rounded-[22px] border border-[#dce5e8] bg-[#fbfdfc] p-5 md:p-7">
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#487881]">Knowledge Graph Preview</p>
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#487881]">Topics</p>
                               <h3 className="mt-2 text-xl text-slate-900" style={{ fontFamily: "var(--font-heading)" }}>
                                 {selectedInboxItem.graph.title}
                               </h3>
                             </div>
-                            <span className="rounded-full bg-white px-3 py-1 text-[11px] text-slate-700">Nightly agent run · 20:00</span>
+                            <span className="rounded-full bg-white px-3 py-1 text-[11px] text-slate-700">Updated 20:00</span>
                           </div>
                           <p className="mt-3 text-sm leading-relaxed text-slate-600">{selectedInboxItem.graph.summary}</p>
 
-                          <div className="mt-5 rounded-[22px] border border-[#dce5e8] bg-white p-5">
-                            {selectedInboxItem.graph.nodes.filter((node) => node.tier === "core").map((node) => (
-                              <div key={node.id} className="mx-auto max-w-sm rounded-[18px] bg-[#dcefeb] px-4 py-4 text-center text-base font-semibold text-[#20555a]">
-                                {node.label}
-                              </div>
+                          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                            {selectedInboxItem.graph.nodes.map((node) => (
+                              <button key={node.id} onClick={() => openIsland(node.label)} className="rounded-[18px] border border-[#dce5e8] bg-white px-4 py-4 text-left transition hover:border-[#9ec4ff]/45 hover:bg-[#e5edf8]">
+                                <span className="block text-sm font-semibold text-slate-900">{node.label}</span>
+                                <span className="mt-2 block text-xs text-[#487881]">Open saved ideas →</span>
+                              </button>
                             ))}
-                            <div className="mx-auto h-6 w-px bg-[#9ec4ff]/40" />
-                            <div className="grid gap-3 sm:grid-cols-2">
-                              {selectedInboxItem.graph.nodes.filter((node) => node.tier === "satellite").map((node) => {
-                                const connection = selectedInboxItem.graph.edges.find((edge) => edge.to === node.id && selectedInboxItem.graph.nodes.some((source) => source.id === edge.from && source.tier === "core"));
-                                return (
-                                  <button key={node.id} onClick={() => openIsland(node.label)} className="rounded-[18px] border border-[#dce5e8] bg-white px-4 py-4 text-left transition hover:border-[#9ec4ff]/45 hover:bg-[#e5edf8]">
-                                    <span className="block text-sm font-semibold text-slate-900">{node.label}</span>
-                                    {connection ? <span className="mt-1 block text-xs text-[#487881]">{connection.label}</span> : null}
-                                    <span className="mt-3 block text-xs text-slate-500">Explore saved ideas →</span>
-                                  </button>
-                                );
-                              })}
-                            </div>
                           </div>
-
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            {selectedInboxItem.graph.chips.map((chip) => (
-                              <span key={chip} className="rounded-full bg-white px-3 py-1 text-[11px] text-slate-700">
-                                {chip}
-                              </span>
+                          <div className="mt-5 space-y-2">
+                            {selectedInboxItem.graph.edges.map((edge) => (
+                              <div key={`${edge.from}-${edge.to}`} className="flex flex-wrap items-center justify-between gap-2 border-b border-[#dce5e8] py-2 text-sm">
+                                <span>{selectedInboxItem.graph.nodes.find((node) => node.id === edge.from)?.label} ↔ {selectedInboxItem.graph.nodes.find((node) => node.id === edge.to)?.label}</span>
+                                <span className="text-xs font-semibold uppercase text-[#487881]">{edge.strength}</span>
+                              </div>
                             ))}
                           </div>
                         </article>
                       ) : (
                         <article className="min-w-0 rounded-[22px] border border-[#dce5e8] bg-[#fbfdfc] p-5 md:p-7">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#487881]">Serendipity Push</p>
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#487881]">Connection</p>
                           <h3 className="mt-2 text-xl text-slate-900" style={{ fontFamily: "var(--font-heading)" }}>
                             {selectedInboxItem.title}
                           </h3>
                           <p className="mt-3 text-base leading-relaxed text-slate-700">{selectedInboxItem.suggestion}</p>
-                          <p className="mt-7 text-xs font-semibold uppercase tracking-[0.16em] text-[#487881]">Why this surfaced</p>
+                          <p className="mt-7 text-xs font-semibold uppercase tracking-[0.16em] text-[#487881]">Evidence</p>
                           <div className="mt-3 space-y-3">
                             {selectedInboxItem.evidence.map((item) => (
                               <div key={item} className="rounded-[16px] border-l-[3px] border-[#88bcb3] bg-[#edf6f3] px-4 py-3 text-sm leading-relaxed text-slate-700">
@@ -2201,14 +2123,11 @@ export default function Page() {
                             ))}
                           </div>
                           <div className="mt-4 flex flex-wrap items-center gap-3">
-                            <span className="rounded-full bg-[#e5edf8] px-3 py-1 text-[11px] text-[#315f69]">
-                              Related island: {selectedInboxItem.relatedIsland}
-                            </span>
                             <button
                               onClick={() => openIsland(selectedInboxItem.relatedIsland)}
                               className="rounded-full bg-[linear-gradient(135deg,#204169,#315f96)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-95"
                             >
-                              Explore related knowledge
+                              Open {selectedInboxItem.relatedIsland} →
                             </button>
                           </div>
                         </article>
@@ -2232,13 +2151,13 @@ export default function Page() {
                 <section className="rounded-[24px] border border-[#dce5e8] bg-white p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Live Takeaways</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Ideas</p>
                       <p className="mt-1 text-sm text-slate-600">
                         {builderDraftCount
-                          ? `${builderSelectedDraftCount} selected / ${builderDraftCount} live draft takeaway${builderDraftCount === 1 ? "" : "s"} · ${builderSavedCount} already saved in memory`
+                          ? `${builderSelectedDraftCount} selected · ${builderSavedCount} saved`
                           : builderSavedCount
-                            ? `${builderSavedCount} saved memory item${builderSavedCount === 1 ? "" : "s"} in this view.`
-                            : "Parse a source to generate live draft takeaways for selection and saving."}
+                            ? `${builderSavedCount} saved`
+                            : "No ideas yet"}
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -2354,16 +2273,15 @@ export default function Page() {
                   ))}
                 </nav>
                 <section className="rounded-[24px] border border-[#6ba5ff]/20 bg-white p-5">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#487881]">Connected knowledge</p>
-                  <p className="mt-3 text-base leading-relaxed text-slate-700">{selectedIsland.summary}</p>
-                  <p className="mt-3 text-sm text-slate-500">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#487881]">{selectedIsland.domain}</p>
+                  <p className="mt-2 text-base leading-relaxed text-slate-700">{selectedIsland.summary}</p>
+                  <p className="mt-2 text-sm text-slate-500">
                     {selectedIslandConversations.length} related conversations · {selectedIslandTakeaways.length} saved ideas
                   </p>
                 </section>
 
                 <section className="rounded-[24px] border border-[#dce5e8] bg-white p-5">
-                  <h2 className="text-xl font-semibold text-slate-900">Related conversations</h2>
-                  <p className="mt-1 text-sm text-slate-600">Open the discussion where these ideas were used.</p>
+                  <h2 className="text-xl font-semibold text-slate-900">Chats</h2>
                   <div className="mt-4 space-y-2">
                     {selectedIslandConversations.length ? selectedIslandConversations.map((conversation) => (
                       <button
@@ -2382,8 +2300,7 @@ export default function Page() {
                 </section>
 
                 <section className="rounded-[24px] border border-[#dce5e8] bg-white p-5">
-                  <h2 className="text-xl font-semibold text-slate-900">Saved ideas by source</h2>
-                  <p className="mt-1 text-sm text-slate-600">Only ideas you chose to keep appear here.</p>
+                  <h2 className="text-xl font-semibold text-slate-900">Saved ideas</h2>
                   <div className="mt-4 space-y-3">
                     {selectedIslandSources.length ? selectedIslandSources.map((source) => {
                       const sourceItems = selectedIslandTakeaways.filter((item) => item.podcastId === source.id);
@@ -2392,7 +2309,7 @@ export default function Page() {
                           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#487881]">{source.domain}</p>
                           <h3 className="mt-1 text-sm font-semibold text-slate-900">{source.title}</h3>
                           <div className="mt-3 space-y-2">
-                            {sourceItems.slice(0, 2).map((item) => (
+                            {sourceItems.slice(0, 1).map((item) => (
                               <p key={item.id} className="rounded-xl bg-white px-3 py-2 text-sm leading-relaxed text-slate-700">{item.text}</p>
                             ))}
                             {!sourceItems.length ? <p className="text-sm text-slate-500">No saved ideas from this source yet.</p> : null}
@@ -2421,36 +2338,15 @@ export default function Page() {
               </div>
             ) : !activeConversation || activeConversation.messages.length === 0 ? (
               <section className="mx-auto flex h-full max-w-4xl flex-col justify-center">
-                <p className="inline-flex w-fit items-center gap-2 rounded-full border border-teal/20 bg-teal/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-teal">
-                  <WandSparkles className="h-3.5 w-3.5" />
-                  {isDemoMode ? "Example workspace" : "Your workspace"}
-                </p>
-                <h2 className="mt-5 max-w-4xl text-balance text-5xl leading-tight text-slate-900" style={{ fontFamily: "var(--font-heading)" }}>
-                  Turn scattered content into ideas you can use again.
+                <h2 className="max-w-4xl text-balance text-4xl leading-tight text-slate-900" style={{ fontFamily: "var(--font-heading)" }}>
+                  Start a chat
                 </h2>
-                <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-600">
-                  Add a source, select the ideas worth remembering, and ask questions grounded in what you kept.
+                <p className="mt-3 max-w-3xl text-base leading-relaxed text-slate-600">
+                  Ask about saved ideas, or add a source below.
                 </p>
-                <div className="mt-8 grid gap-3 md:grid-cols-3">
-                  {legacyCards.map((card) => (
-                    <article key={card} className="rounded-[22px] bg-white px-4 py-4">
-                      <p className="text-xs leading-relaxed text-slate-700">{card}</p>
-                    </article>
-                  ))}
-                </div>
               </section>
             ) : (
               <div className="mx-auto flex max-w-4xl flex-col gap-3">
-                {isDemoMode ? (
-                  <section className="mb-2 rounded-[22px] border border-[#6ba5ff]/24 bg-[#e8f3ef] p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#487881]">Explore the example</p>
-                    <p className="mt-2 text-base font-semibold text-slate-900">From a saved source to an answer you can trust.</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button onClick={() => { setBuilderSourceId(activeConversation.podcastIds[0] ?? null); setActivePanel("builder"); }} className="rounded-full bg-[#315f96] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#3a70ad]">See selected ideas →</button>
-                      <button onClick={() => openIsland("Compounding Systems")} className="rounded-full border border-[#dce5e8] px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-white">Explore connections →</button>
-                    </div>
-                  </section>
-                ) : null}
                 {activeConversation.messages.map((message) => (
                   <article
                     key={message.id}
@@ -2462,9 +2358,12 @@ export default function Page() {
                   >
                     <p className="whitespace-pre-wrap">{message.content}</p>
                     {message.role === "assistant" && message.contexts && message.contexts.length > 0 ? (
-                      <div className="mt-3 rounded-[18px] border border-[#dce5e8] bg-white px-3 py-2 text-xs text-slate-600">
-                        Grounded memory: {message.contexts.join(" | ")}
-                      </div>
+                      <details className="mt-3 rounded-[18px] border border-[#dce5e8] bg-white px-3 py-2 text-xs text-slate-600">
+                        <summary className="cursor-pointer font-semibold">Sources used ({message.contexts.length})</summary>
+                        <ul className="mt-2 list-disc space-y-1 pl-4">
+                          {message.contexts.map((context, index) => <li key={`${message.id}-context-${index}`}>{context}</li>)}
+                        </ul>
+                      </details>
                     ) : null}
                   </article>
                 ))}
@@ -2481,29 +2380,14 @@ export default function Page() {
           {activePanel === "chat" || activePanel === "builder" ? <div className="border-t border-[#dce5e8] bg-white px-5 py-4">
             {hint ? <p className="mb-3 text-xs text-teal">{hint}</p> : null}
             <div className="rounded-[28px] border border-[#dce5e8] bg-white p-4 shadow-[0_20px_44px_rgba(0,0,0,0.34)]">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#58787c]">
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Add a source or ask a question
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[#dce5e8] bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">
                   <ImagePlus className="h-3.5 w-3.5" />
                   Add image
                   <input type="file" accept="image/*" className="hidden" onChange={onFileSelect} />
                 </label>
-                <span className="inline-flex items-center gap-2 rounded-full border border-[#dce5e8] bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">
-                  <Link2 className="h-3.5 w-3.5" />
-                  {extractUrls(messageInput)[0] ? "External link detected" : "Link-ready"}
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-[#dce5e8] bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">
-                  <Paperclip className="h-3.5 w-3.5" />
-                  {attachments.length} attachment{attachments.length === 1 ? "" : "s"}
-                </span>
+                {extractUrls(messageInput)[0] ? <span className="inline-flex items-center gap-2 text-xs text-slate-600"><Link2 className="h-3.5 w-3.5" /> Link detected</span> : null}
+                {attachments.length ? <span className="inline-flex items-center gap-2 text-xs text-slate-600"><Paperclip className="h-3.5 w-3.5" /> {attachments.length} attached</span> : null}
               </div>
 
               {attachments.length ? (
@@ -2522,15 +2406,15 @@ export default function Page() {
                 </div>
               ) : null}
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                <div className="flex min-w-[220px] flex-1 items-end gap-2 rounded-[22px] border border-[#dce5e8] bg-white px-3 py-2">
+              <div className="workspace-composer-input mt-4 grid grid-cols-[minmax(0,1fr)_auto_auto] items-end gap-2">
+                <div className="flex min-w-0 items-end gap-2 rounded-[22px] border border-[#dce5e8] bg-white px-3 py-2">
                   <MessageSquare className="mb-2 h-4 w-4 shrink-0 text-slate-500" />
                   <textarea
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
                     onPaste={onInputPaste}
                     rows={2}
-                    placeholder="Paste a link or note to extract ideas, or ask about saved memory..."
+                    placeholder="Ask a question or paste a source..."
                     className="max-h-32 min-h-[52px] w-full resize-none bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
                   />
                 </div>
@@ -2570,83 +2454,69 @@ export default function Page() {
 
         <aside className="workspace-islands flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-[#dce5e8] bg-white shadow-[0_24px_70px_rgba(0,0,0,0.34)]">
           <div className="night-scroll flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
-            <div className="flex-none">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#487881]">Knowledge map</p>
-              <h3 className="mt-2 text-2xl text-slate-900" title={insightCluster?.title} style={{ fontFamily: "var(--font-heading)" }}>
-                Explore connections
-              </h3>
-              <p className="mt-2 text-sm text-slate-600">Choose an island to open its related conversations and saved ideas.</p>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-2xl text-slate-900" title={insightCluster?.title} style={{ fontFamily: "var(--font-heading)" }}>Connections</h3>
+              {isDemoMode ? <span className="rounded-full bg-[#e5edf8] px-2.5 py-1 text-[11px] font-semibold text-[#315f69]">Demo map</span> : null}
             </div>
 
-            <div className="relative min-h-[420px] flex-1 overflow-hidden rounded-[34px] bg-[#e7f1f0]">
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.82),transparent_42%)]" />
-              <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                <span className="star-streak left-[6%] top-[16%]" style={{ animationDelay: "0.2s", animationDuration: "7.4s" }} />
-                <span className="star-streak left-[26%] top-[8%]" style={{ animationDelay: "2.1s", animationDuration: "8.2s" }} />
-                <span className="star-streak left-[58%] top-[24%]" style={{ animationDelay: "4.3s", animationDuration: "7.8s" }} />
-              </div>
-
-              <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                <path d="M27 60 C40 50, 49 48, 60 52" stroke="rgba(133,181,255,0.42)" strokeWidth="0.34" fill="none" className="energy-line" />
-                <path d="M45 49 C57 34, 67 31, 80 25" stroke="rgba(98,157,255,0.28)" strokeWidth="0.28" fill="none" className="energy-line" />
-                <path d="M42 67 C54 72, 68 72, 82 64" stroke="rgba(98,157,255,0.26)" strokeWidth="0.28" fill="none" className="energy-line" />
-                <path d="M32 58 C25 44, 21 35, 15 24" stroke="rgba(133,181,255,0.28)" strokeWidth="0.26" fill="none" className="energy-line" />
-              </svg>
-
-              <button
-                onClick={() => openIsland(canvasLabels[0] ?? "Main Island")}
-                aria-label={`Explore ${canvasLabels[0] ?? "Main Island"} knowledge`}
-                aria-pressed={activePanel === "island" && selectedIsland.id === presetMainIsland.id}
-                className="island-pulse island-mass absolute left-[23%] top-[38%] z-10 h-52 w-56 overflow-hidden border border-[#85b5ff]/20 text-slate-900 shadow-[0_0_70px_rgba(87,140,255,0.18)] transition hover:scale-[1.02]"
-                style={{ borderRadius: "44% 56% 52% 48% / 46% 44% 56% 54%" }}
-              >
-                <span className="island-shore absolute inset-[10px]" style={{ borderRadius: "43% 57% 51% 49% / 45% 43% 57% 55%" }} />
-                <span className="island-ridge absolute left-[16%] top-[18%] h-14 w-20" style={{ borderRadius: "52% 48% 60% 40% / 42% 58% 42% 58%" }} />
-                <span className="island-ridge absolute bottom-[18%] right-[16%] h-12 w-24 opacity-70" style={{ borderRadius: "43% 57% 48% 52% / 58% 42% 58% 42%" }} />
-                <span className="island-lagoon absolute left-[38%] top-[36%] h-16 w-24" style={{ borderRadius: "48% 52% 45% 55% / 58% 42% 58% 42%" }} />
-                <span className="relative z-10 px-6 text-base font-semibold">{canvasLabels[0] ?? "Main Island"}</span>
-              </button>
-
-              {canvasLabels.slice(1, 5).map((label, index) => {
-                const positions = [
-                  { top: "18%", left: "60%" },
-                  { top: "68%", left: "60%" },
-                  { top: "16%", left: "10%" },
-                  { top: "72%", left: "10%" }
-                ];
-                const radii = [
-                  "48% 52% 46% 54% / 58% 42% 58% 42%",
-                  "58% 42% 52% 48% / 46% 54% 46% 54%",
-                  "46% 54% 58% 42% / 52% 48% 52% 48%",
-                  "52% 48% 44% 56% / 56% 44% 56% 44%"
-                ];
-                const position = positions[index] ?? positions[0];
-                return (
-                  <button
-                    key={label}
-                    className="floating-node island-mass absolute z-10 h-20 w-32 overflow-hidden border border-[#85b5ff]/14 px-4 py-2 text-xs text-slate-700 shadow-[0_0_28px_rgba(104,145,255,0.14)] transition hover:scale-[1.02]"
-                    style={{ ...position, borderRadius: radii[index] }}
-                    onClick={() => openIsland(label)}
-                    aria-label={`Explore ${label} knowledge`}
-                    aria-pressed={activePanel === "island" && selectedIsland.label === label}
-                  >
-                    <span className="island-shore absolute inset-[6px]" style={{ borderRadius: radii[index] }} />
-                    <span className="island-ridge absolute left-[16%] top-[18%] h-5 w-9 opacity-75" style={{ borderRadius: "52% 48% 60% 40% / 42% 58% 42% 58%" }} />
-                    <span className="island-ridge absolute bottom-[18%] right-[16%] h-4 w-10 opacity-55" style={{ borderRadius: "43% 57% 48% 52% / 58% 42% 58% 42%" }} />
-                    <span className="island-lagoon absolute left-[42%] top-[36%] h-5 w-8 opacity-80" style={{ borderRadius: "48% 52% 45% 55% / 58% 42% 58% 42%" }} />
-                    <span className="relative z-10">{label}</span>
-                  </button>
-                );
-              })}
+            <div className="relative min-h-[400px] flex-1 overflow-hidden rounded-[28px] border border-[#dce5e8] bg-[#f3f8f7]">
+              {visibleMapNodes.length ? (
+                <>
+                  <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Topic connections">
+                    {visibleMapEdges.map((edge) => {
+                      const from = visibleMapNodes.find((node) => node.id === edge.from);
+                      const to = visibleMapNodes.find((node) => node.id === edge.to);
+                      if (!from || !to) return null;
+                      const selected = selectedConnection === edge;
+                      const color = edge.strength === "strong" ? "#31847c" : edge.strength === "related" ? "#87a9a3" : "#b9c9c7";
+                      const width = edge.strength === "strong" ? 1.25 : edge.strength === "related" ? 0.72 : 0.42;
+                      return (
+                        <g key={`${edge.from}-${edge.to}`}>
+                          <path d={`M ${from.x} ${from.y} L ${to.x} ${to.y}`} stroke={color} strokeWidth={selected ? width + 0.25 : width}
+                            strokeDasharray={edge.strength === "weak" ? "1.2 1.2" : undefined} fill="none" />
+                        </g>
+                      );
+                    })}
+                  </svg>
+                  {visibleMapNodes.map((node) => {
+                    const topic = presetIslandModules.find((item) => item.id === node.id);
+                    return (
+                      <button key={node.id} onClick={() => openIsland(node.label)}
+                        aria-label={`Open ${node.label} topic`}
+                        aria-pressed={activePanel === "island" && selectedIsland.id === node.id}
+                        className={`absolute z-10 flex h-[74px] w-[120px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-[18px] border px-2 text-center shadow-[0_8px_20px_rgba(38,66,69,0.08)] transition hover:-translate-y-[55%] hover:shadow-[0_12px_25px_rgba(38,66,69,0.14)] aria-pressed:ring-2 aria-pressed:ring-[#31847c] ${topic?.domain === "AI" ? "border-[#9ccbc1] bg-[#e2f1ec]" : topic?.domain === "Finance" ? "border-[#e0cbaa] bg-[#fbefd9]" : "border-[#cfbfdc] bg-[#f1e9f5]"}`}
+                        style={{ left: `${node.x}%`, top: `${node.y}%` }}>
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">{topic?.domain}</span>
+                        <span className="mt-1 text-xs font-semibold leading-tight text-slate-900">{node.label}</span>
+                      </button>
+                    );
+                  })}
+                </>
+              ) : <div className="flex h-full items-center justify-center px-8 text-center text-sm text-slate-500">Save ideas to build your topic map.</div>}
             </div>
 
-            <section className="flex-none rounded-[22px] border border-[#dce5e8] bg-white p-4">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#487881]">Current connection</p>
-              <p className="mt-2 text-base leading-snug text-slate-900">Finance, business, and AI share a review loop.</p>
-              <button onClick={() => openIsland(presetMainIsland.label)} className="mt-3 text-sm font-semibold text-[#246b70] hover:underline">
-                Explore this topic →
-              </button>
-            </section>
+            {visibleMapEdges.length ? (
+              <>
+                <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-600" aria-label="Connection strength legend">
+                  <span className="inline-flex items-center gap-2"><i className="h-[4px] w-5 rounded-full bg-[#31847c]" /> Strong</span>
+                  <span className="inline-flex items-center gap-2"><i className="h-[3px] w-5 rounded-full bg-[#87a9a3]" /> Related</span>
+                  <span className="inline-flex items-center gap-2"><i className="w-5 border-t border-dashed border-[#b9c9c7]" /> Weak</span>
+                </div>
+                {selectedConnection ? (
+                  <section className="rounded-[20px] border border-[#dce5e8] bg-white p-4">
+                    <select aria-label="Choose connection" value={visibleMapEdges.indexOf(selectedConnection)} onChange={(event) => setSelectedConnectionIndex(Number(event.target.value))}
+                      className="w-full rounded-xl border border-[#dce5e8] bg-white px-3 py-2 text-sm font-semibold text-slate-900">
+                      {visibleMapEdges.map((edge, index) => (
+                        <option key={`${edge.from}-${edge.to}`} value={index}>
+                          {edge.strength} · {compactTopicLabels[edge.from]} ↔ {compactTopicLabels[edge.to]}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-600">{selectedConnection.explanation}</p>
+                  </section>
+                ) : null}
+              </>
+            ) : null}
           </div>
         </aside></> : null}
       </div>

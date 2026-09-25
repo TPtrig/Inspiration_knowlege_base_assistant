@@ -29,6 +29,7 @@ It preserves the original Human-in-the-Loop RAG foundation while introducing:
 ## Product PRD
 
 - [Inspiration 2.0 PRD](./docs/PRD.md)
+- [Desktop workspace and future product page](./docs/desktop-ui-direction.md)
 
 ## Why This Product
 
