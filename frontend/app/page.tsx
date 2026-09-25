@@ -163,12 +163,6 @@ type SerendipityHintApi = {
   };
 };
 
-type CanvasDetail = {
-  title: string;
-  summary: string;
-  evidence: string[];
-};
-
 type KnowledgeGraphNode = {
   id: string;
   label: string;
@@ -261,9 +255,9 @@ const parseStages = [
 ];
 
 const legacyCards = [
-  "**EXTRACT:** Parse and draft takeaways automatically.",
-  "**CURATE:** Enable/disable or delete takeaways in Global RAG Builder.",
-  "**CHAT:** Answer grounded on globally selected memory."
+  "1. Add a podcast, video, image, or note.",
+  "2. Choose the ideas worth keeping.",
+  "3. Ask questions and discover connections later."
 ];
 
 const presetIslandModules = [
@@ -333,6 +327,14 @@ const presetIslandModules = [
     ]
   }
 ];
+
+const islandDomains: Record<string, string[]> = {
+  "compounding-systems": ["Finance", "Business", "AI"],
+  "capital-discipline": ["Finance"],
+  "operating-cadence": ["Business"],
+  "ai-reliability": ["AI"],
+  "knowledge-transfer": ["Finance", "Business", "AI"]
+};
 
 const presetKnowledgeGraph = {
   title: "20:00 Knowledge Graph Refresh",
@@ -802,14 +804,6 @@ function createPresetSerendipityInboxItem(seed: string): InboxItem | null {
   return null;
 }
 
-function buildFallbackCanvasDetail(label: string, highlights: string[]): CanvasDetail {
-  return {
-    title: label,
-    summary: `This island captures a recurring thread around ${label.toLowerCase()} and turns it into a reusable prompt for later synthesis.`,
-    evidence: highlights.length ? highlights : ["Waiting for stronger evidence from parsed memory."]
-  };
-}
-
 function stageIndexForTaskStatus(status: string): number {
   if (status === "transcribing") {
     return 1;
@@ -952,11 +946,12 @@ function summaryToConversation(summary: ConversationSummaryApi): Conversation {
 
 export default function Page() {
   const layoutRef = useRef<HTMLDivElement | null>(null);
+  const contentScrollRef = useRef<HTMLDivElement | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string>("");
-  const [activePanel, setActivePanel] = useState<"chat" | "builder" | "inbox">("chat");
+  const [activePanel, setActivePanel] = useState<"chat" | "builder" | "inbox" | "island">("chat");
   const [leftPaneWidth, setLeftPaneWidth] = useState(280);
-  const [rightPaneWidth, setRightPaneWidth] = useState(520);
+  const [rightPaneWidth, setRightPaneWidth] = useState(440);
   const [dragPane, setDragPane] = useState<"left" | "right" | null>(null);
 
   const [podcasts, setPodcasts] = useState<PodcastAsset[]>([]);
@@ -983,7 +978,8 @@ export default function Page() {
   const [hint, setHint] = useState<string | null>(null);
   const [insightCluster, setInsightCluster] = useState<InsightClusterApi | null>(null);
   const [serendipityHint, setSerendipityHint] = useState<string | null>(null);
-  const [activeCanvasDetail, setActiveCanvasDetail] = useState<CanvasDetail | null>(null);
+  const [selectedIslandId, setSelectedIslandId] = useState(presetIslandModules[0].id);
+  const [builderSourceId, setBuilderSourceId] = useState<string | null>(null);
   const [inboxItems, setInboxItems] = useState<InboxItem[]>(initialInboxItems);
   const [selectedInboxItemId, setSelectedInboxItemId] = useState<string>(initialInboxItems[0]?.id ?? "");
 
@@ -993,6 +989,10 @@ export default function Page() {
   const deliveredPushIdsRef = useRef<Set<string>>(new Set());
 
   const isDemoMode = useMemo(() => isDemoModeEnabled(), []);
+
+  useEffect(() => {
+    contentScrollRef.current?.scrollTo({ top: 0 });
+  }, [activePanel, selectedIslandId, builderSourceId]);
 
   const effectiveActiveConversationId = useMemo(() => {
     if (!conversations.length) {
@@ -1011,9 +1011,11 @@ export default function Page() {
 
   const enabledTakeaways = useMemo(() => takeaways.filter((t) => t.enabled), [takeaways]);
   const liveDraftTakeaways = useMemo(() => takeaways.filter((item) => !item.persisted), [takeaways]);
-  const savedMemoryCount = useMemo(() => takeaways.filter((item) => item.persisted).length, [takeaways]);
-  const selectedDraftCount = useMemo(() => liveDraftTakeaways.filter((item) => item.enabled).length, [liveDraftTakeaways]);
   const liveDraftCount = liveDraftTakeaways.length;
+  const builderTakeaways = builderSourceId ? takeaways.filter((item) => item.podcastId === builderSourceId) : takeaways;
+  const builderDraftCount = builderTakeaways.filter((item) => !item.persisted).length;
+  const builderSelectedDraftCount = builderTakeaways.filter((item) => !item.persisted && item.enabled).length;
+  const builderSavedCount = builderTakeaways.filter((item) => item.persisted).length;
 
   const upsertConversation = (conversationId: string, mutator: (conversation: Conversation) => Conversation) => {
     setConversations((prev) => prev.map((c) => (c.id === conversationId ? mutator(c) : c)));
@@ -1492,14 +1494,14 @@ export default function Page() {
       appendMessage(conversationId, {
         id: makeId("msg"),
         role: "assistant",
-        content: `Parsed source completed: ${title}. Review takeaways in Global RAG Builder.`,
+        content: `Source ready: ${title}. Review the extracted ideas in Curate memory.`,
         createdAt: Date.now()
       });
     }
 
     setMessageInput("");
     setAttachments([]);
-    setHint("Parsing completed. Draft takeaways were added to Inspiration Builder.");
+    setHint("Source ready. Review the extracted ideas in Curate memory.");
     await refreshInsightCluster(true);
   };
 
@@ -1631,7 +1633,7 @@ export default function Page() {
           appendMessage(targetConversation.id, {
             id: makeId("msg"),
             role: "assistant",
-            content: `${isDemoMode ? "Demo" : "Mock"} parse completed: ${title}. Review takeaways in Global RAG Builder.`,
+            content: `${isDemoMode ? "Demo" : "Mock"} source ready: ${title}. Review the extracted ideas in Curate memory.`,
             createdAt: Date.now()
           });
 
@@ -1639,7 +1641,7 @@ export default function Page() {
           setAttachments([]);
           setHint(
             isDemoMode
-              ? "Demo parse completed. Draft takeaways were added to Inspiration Builder."
+              ? "Demo source ready. Review the extracted ideas in Curate memory."
               : "Frontend mock parse completed. Backend media parser will replace this in the next step."
           );
           void refreshInsightCluster(true);
@@ -1732,14 +1734,14 @@ export default function Page() {
     }
   };
 
-  const saveSelectedToBrain = async () => {
+  const saveSelectedToBrain = async (sourceId: string | null = null) => {
     const key = openaiApiKey.trim();
     if (!isDemoMode && !key) {
       setHint("OpenAI API key is required to save selected takeaways.");
       return;
     }
 
-    const selectedDrafts = takeaways.filter((item) => item.enabled && !item.persisted);
+    const selectedDrafts = takeaways.filter((item) => item.enabled && !item.persisted && (!sourceId || item.podcastId === sourceId));
     if (!selectedDrafts.length) {
       setHint("No selected draft takeaways to save.");
       return;
@@ -1867,8 +1869,8 @@ export default function Page() {
     }
   };
 
-  const setAllDraftTakeawaysEnabled = (enabled: boolean) => {
-    setTakeaways((prev) => prev.map((item) => (item.persisted ? item : { ...item, enabled })));
+  const setAllDraftTakeawaysEnabled = (enabled: boolean, sourceId: string | null = null) => {
+    setTakeaways((prev) => prev.map((item) => (item.persisted || (sourceId && item.podcastId !== sourceId) ? item : { ...item, enabled })));
   };
 
   const conversationList = useMemo(() => [...conversations].sort((a, b) => b.updatedAt - a.updatedAt), [conversations]);
@@ -1914,20 +1916,31 @@ export default function Page() {
   const insightHighlights = presetSmallIslands.map((item) => summarizeTextTitle(item.summary));
   const hiddenCommonality =
     "Finance, business, and AI all point to the same hidden commonality: compounding systems make feedback visible early, preserve decisions over time, and turn constraints into better operating judgment.";
-  const openCanvasDetail = (label: string) => {
-    const preset = presetIslandModules.find((item) => item.label === label);
-    setActiveCanvasDetail(
-      preset
-        ? {
-            title: preset.label,
-            summary: preset.summary,
-            evidence: preset.details
-          }
-        : buildFallbackCanvasDetail(label, insightHighlights)
-    );
-    setActivePanel("builder");
+  const selectedIsland = presetIslandModules.find((item) => item.id === selectedIslandId) ?? presetMainIsland;
+  const selectedIslandSources = podcasts.filter((podcast) => islandDomains[selectedIsland.id]?.includes(podcast.domain ?? ""));
+  const selectedIslandSourceIds = new Set(selectedIslandSources.map((podcast) => podcast.id));
+  const selectedIslandTakeaways = takeaways.filter(
+    (item) => item.persisted && item.enabled && selectedIslandSourceIds.has(item.podcastId)
+  );
+  const selectedIslandConversations = conversations.filter((conversation) =>
+    conversation.podcastIds.some((podcastId) => selectedIslandSourceIds.has(podcastId))
+  );
+  const openIsland = (label: string) => {
+    const island = presetIslandModules.find((item) => item.label === label);
+    if (!island) {
+      return;
+    }
+    setSelectedIslandId(island.id);
+    setActivePanel("island");
   };
-  const visibleTakeawayGroups = groupedTakeaways;
+  const openConversation = (conversationId: string) => {
+    setActiveConversationId(conversationId);
+    setActivePanel("chat");
+    void loadConversationDetail(conversationId);
+  };
+  const visibleTakeawayGroups = builderSourceId
+    ? groupedTakeaways.filter((group) => group.podcast.id === builderSourceId)
+    : groupedTakeaways;
 
   const getConversationTitle = (conversation: Conversation): string => {
     if (conversation.title && conversation.title.trim() && conversation.title !== "New Chat") {
@@ -1951,56 +1964,54 @@ export default function Page() {
   };
 
   return (
-    <main className="h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(76,108,171,0.24),_transparent_18%),radial-gradient(circle_at_85%_10%,_rgba(86,141,255,0.16),_transparent_16%),linear-gradient(160deg,#050915_0%,#0a1222_45%,#0b1528_100%)] px-4 py-4 text-white md:px-6">
+    <main className="workspace-shell h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(76,108,171,0.24),_transparent_18%),radial-gradient(circle_at_85%_10%,_rgba(86,141,255,0.16),_transparent_16%),linear-gradient(160deg,#050915_0%,#0a1222_45%,#0b1528_100%)] px-4 py-4 text-white md:px-6">
       <div
         ref={layoutRef}
-        className="mx-auto grid h-full w-full max-w-[1720px] items-stretch gap-0"
-        style={{ gridTemplateColumns: `${leftPaneWidth}px 12px minmax(0,1fr) 12px ${rightPaneWidth}px` }}
+        className="workspace-grid mx-auto grid h-full w-full max-w-[1720px] items-stretch gap-0"
+        style={{ gridTemplateColumns: activePanel === "inbox" ? `${leftPaneWidth}px 12px minmax(0,1fr)` : `${leftPaneWidth}px 12px minmax(0,1fr) 12px ${rightPaneWidth}px` }}
       >
-        <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,rgba(9,17,30,0.92),rgba(7,13,24,0.96))] shadow-[0_24px_70px_rgba(0,0,0,0.34)]">
+        <aside className="workspace-sidebar flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,rgba(9,17,30,0.92),rgba(7,13,24,0.96))] shadow-[0_24px_70px_rgba(0,0,0,0.34)]">
           <div className="border-b border-white/8 px-4 py-4">
             <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#90a6d2]">
               <Sparkles className="h-3.5 w-3.5" />
               Inspiration
             </p>
-            <div className="grid gap-2">
+            <div className="workspace-sidebar-actions grid gap-2">
               <button
                 onClick={() => void createNewChat()}
                 className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
               >
                 <CirclePlus className="h-4 w-4" />
-                New Thread
-              </button>
-              <button
-                onClick={() => setActivePanel("builder")}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#204169,#315f96)] px-4 py-3 text-sm font-semibold text-white transition hover:opacity-95"
-              >
-                <Brain className="h-4 w-4" />
-                Builder {liveDraftCount}
+                New chat
               </button>
               <button
                 onClick={() => {
-                  setActivePanel("chat");
-                  void createNewChat();
+                  setBuilderSourceId(null);
+                  setActivePanel("builder");
                 }}
-                className="inline-flex items-center justify-center rounded-[18px] border border-[#6ba5ff]/28 bg-[#193152] px-4 py-3 text-left text-sm font-medium text-[#b9d5ff] transition hover:bg-[#23416a]"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#204169,#315f96)] px-4 py-3 text-sm font-semibold text-white transition hover:opacity-95"
               >
-                New Chat
+                <Brain className="h-4 w-4" />
+                Curate memory {liveDraftCount > 0 ? <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs">{liveDraftCount}</span> : null}
+              </button>
+              <button
+                onClick={() => openIsland(presetMainIsland.label)}
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+              >
+                <Sparkles className="h-4 w-4" />
+                Explore knowledge
               </button>
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+          <div className="workspace-conversations min-h-0 flex-1 overflow-y-auto px-3 py-4">
             <p className="mb-3 px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/46">Conversations</p>
-            <div className="space-y-1.5">
+            <div className="workspace-conversation-list space-y-1.5">
               {conversationList.map((conversation) => (
                 <button
                   key={conversation.id}
                   onClick={() => {
-                    setActiveConversationId(conversation.id);
-                    setActivePanel("chat");
-                    setActiveCanvasDetail(null);
-                    void loadConversationDetail(conversation.id);
+                    openConversation(conversation.id);
                   }}
                   className={`w-full rounded-[18px] border px-3 py-3 text-left text-sm transition ${
                     conversation.id === effectiveActiveConversationId
@@ -2016,7 +2027,7 @@ export default function Page() {
           </div>
         </aside>
 
-        <div className="group flex h-full items-center justify-center">
+        <div className="workspace-left-resizer group flex h-full items-center justify-center">
           <button
             type="button"
             aria-label="Resize left and center panels"
@@ -2027,58 +2038,67 @@ export default function Page() {
           </button>
         </div>
 
-        <section className="mx-1 flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(10,18,34,0.92),rgba(8,14,26,0.94))] shadow-[0_24px_70px_rgba(0,0,0,0.42)]">
+        <section className="workspace-main mx-1 flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(10,18,34,0.92),rgba(8,14,26,0.94))] shadow-[0_24px_70px_rgba(0,0,0,0.42)]">
           <div className="border-b border-white/8 px-5 py-4">
-            <div className="flex items-center justify-between gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
-                <h1 className="text-2xl text-white md:text-[2rem]" style={{ fontFamily: "var(--font-heading)" }}>
-                  {activePanel === "builder" ? "Global RAG Builder" : activePanel === "inbox" ? "Agent Inbox" : "Chat Workspace"}
-                </h1>
-                <p className="mt-1 text-sm text-white/56">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-2xl text-white md:text-[2rem]" style={{ fontFamily: "var(--font-heading)" }}>
+                    {activePanel === "builder" ? "Curate memory" : activePanel === "inbox" ? "Agent Inbox" : activePanel === "island" ? selectedIsland.label : "Your knowledge workspace"}
+                  </h1>
+                  {isDemoMode ? <span className="rounded-full border border-[#6ba5ff]/30 bg-[#21416a]/45 px-2.5 py-1 text-[11px] font-semibold text-[#b9d5ff]">Example workspace</span> : null}
+                </div>
+                <p className="mt-1 text-sm text-white/62">
                   {activePanel === "builder"
-                    ? "Curate memory after clicking an island or parsing a new source."
+                    ? "Choose which extracted ideas become part of your memory."
                     : activePanel === "inbox"
-                      ? "Review nightly graph updates and serendipity pushes without mixing them into Builder."
-                      : "A fixed widescreen workspace for intake, grounded chat, and synthesis."}
+                      ? "Review new connections and knowledge graph updates."
+                      : activePanel === "island"
+                        ? "Explore the conversations and saved ideas behind this topic."
+                        : "Save useful ideas from any source, then ask questions grounded in what you kept."}
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => {
-                    setActivePanel("inbox");
-                    if (selectedInboxItem) {
-                      openInboxItem(selectedInboxItem.id);
-                    }
-                  }}
-                  className="relative inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#204169,#315f96)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-95"
-                >
-                  <Bell className="h-4 w-4" />
-                  Agent Inbox
-                  {unreadInboxCount > 0 ? (
-                    <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[#df4b57] px-1 text-[10px] font-bold text-white">
-                      {unreadInboxCount}
-                    </span>
-                  ) : null}
-                </button>
-                <button
-                  onClick={() => markAllInboxItemsRead()}
-                  disabled={unreadInboxCount === 0}
-                  className="rounded-full border border-white/10 bg-white/6 px-3 py-2 text-xs text-white/72 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
-                >
-                  Mark all read
-                </button>
+                {activePanel !== "inbox" ? (
+                  <button
+                    onClick={() => {
+                      setActivePanel("inbox");
+                      if (selectedInboxItem) {
+                        openInboxItem(selectedInboxItem.id);
+                      }
+                    }}
+                    className="relative inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#204169,#315f96)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-95"
+                  >
+                    <Bell className="h-4 w-4" />
+                    Agent Inbox
+                    {unreadInboxCount > 0 ? (
+                      <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[#df4b57] px-1 text-[10px] font-bold text-white">
+                        {unreadInboxCount}
+                      </span>
+                    ) : null}
+                  </button>
+                ) : null}
+                {activePanel === "inbox" ? (
+                  <button
+                    onClick={() => markAllInboxItemsRead()}
+                    disabled={unreadInboxCount === 0}
+                    className="rounded-full border border-white/10 bg-white/6 px-3 py-2 text-xs text-white/72 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    Mark all read
+                  </button>
+                ) : null}
               </div>
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+          <div ref={contentScrollRef} className="night-scroll min-h-0 flex-1 overflow-y-auto px-5 py-5">
             {activePanel === "inbox" ? (
-              <div className="space-y-4">
-                <section className="rounded-[24px] border border-[#6ba5ff]/16 bg-[linear-gradient(180deg,rgba(14,25,44,0.94),rgba(9,17,31,0.98))] p-4">
+              <div className="mx-auto w-full max-w-[1220px] space-y-4">
+                <section className="rounded-[24px] border border-[#6ba5ff]/16 bg-[linear-gradient(180deg,rgba(14,25,44,0.94),rgba(9,17,31,0.98))] p-5 md:p-6">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9ec4ff]">Agent Inbox</p>
-                      <p className="mt-1 text-sm text-white/62">Nightly 20:00 graph refresh and serendipity pushes arrive here as unread mail.</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9ec4ff]">Recent updates</p>
+                      <p className="mt-1 text-sm text-white/62">Select an update to read its evidence and next step.</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="inline-flex items-center gap-2 rounded-full bg-white/6 px-3 py-1.5 text-xs text-white/72">
@@ -2100,8 +2120,8 @@ export default function Page() {
                     </div>
                   </div>
 
-                  <div className="mt-4 grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
-                    <div className="space-y-2">
+                  <div className="mt-6 grid items-start gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+                    <div className="space-y-2" aria-label="Inbox updates">
                       {inboxItems.map((item) => (
                         <button
                           key={item.id}
@@ -2122,14 +2142,14 @@ export default function Page() {
                             </div>
                             {item.unread ? <span className="mt-1 h-2.5 w-2.5 rounded-full bg-[#df4b57]" /> : null}
                           </div>
-                          <p className="mt-3 text-sm leading-relaxed text-white/64">{item.summary}</p>
+                          <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-white/64">{item.summary}</p>
                         </button>
                       ))}
                     </div>
 
                     {selectedInboxItem ? (
                       selectedInboxItem.kind === "graph" ? (
-                        <article className="rounded-[22px] border border-white/10 bg-white/[0.04] p-4">
+                        <article className="min-w-0 rounded-[22px] border border-white/10 bg-white/[0.04] p-5 md:p-6">
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <div>
                               <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9ec4ff]">Knowledge Graph Preview</p>
@@ -2141,61 +2161,25 @@ export default function Page() {
                           </div>
                           <p className="mt-3 text-sm leading-relaxed text-white/68">{selectedInboxItem.graph.summary}</p>
 
-                          <div className="mt-4 overflow-hidden rounded-[22px] bg-[linear-gradient(180deg,rgba(8,16,29,0.98),rgba(11,21,39,0.96))] p-4">
-                            <svg viewBox="0 0 100 100" className="h-64 w-full">
-                              {selectedInboxItem.graph.edges.map((edge) => {
-                                const from = selectedInboxItem.graph.nodes.find((node) => node.id === edge.from);
-                                const to = selectedInboxItem.graph.nodes.find((node) => node.id === edge.to);
-                                if (!from || !to) {
-                                  return null;
-                                }
+                          <div className="mt-4 rounded-[22px] bg-[linear-gradient(180deg,rgba(8,16,29,0.98),rgba(11,21,39,0.96))] p-5">
+                            {selectedInboxItem.graph.nodes.filter((node) => node.tier === "core").map((node) => (
+                              <div key={node.id} className="mx-auto max-w-sm rounded-[18px] border border-[#9ec4ff]/40 bg-[#315f96]/50 px-4 py-4 text-center text-base font-semibold text-white">
+                                {node.label}
+                              </div>
+                            ))}
+                            <div className="mx-auto h-6 w-px bg-[#9ec4ff]/40" />
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              {selectedInboxItem.graph.nodes.filter((node) => node.tier === "satellite").map((node) => {
+                                const connection = selectedInboxItem.graph.edges.find((edge) => edge.to === node.id && selectedInboxItem.graph.nodes.some((source) => source.id === edge.from && source.tier === "core"));
                                 return (
-                                  <g key={`${edge.from}-${edge.to}`}>
-                                    <path
-                                      d={`M ${from.x} ${from.y} Q ${(from.x + to.x) / 2} ${Math.min(from.y, to.y) - 12} ${to.x} ${to.y}`}
-                                      fill="none"
-                                      stroke="rgba(126,173,255,0.34)"
-                                      strokeWidth="1.4"
-                                      className="energy-line"
-                                    />
-                                    <text
-                                      x={(from.x + to.x) / 2}
-                                      y={(from.y + to.y) / 2}
-                                      textAnchor="middle"
-                                      className="fill-white/55 text-[3px]"
-                                    >
-                                      {edge.label}
-                                    </text>
-                                  </g>
+                                  <button key={node.id} onClick={() => openIsland(node.label)} className="rounded-[18px] border border-white/12 bg-white/[0.06] px-4 py-4 text-left transition hover:border-[#9ec4ff]/45 hover:bg-[#21416a]">
+                                    <span className="block text-sm font-semibold text-white">{node.label}</span>
+                                    {connection ? <span className="mt-1 block text-xs text-[#9ec4ff]">{connection.label}</span> : null}
+                                    <span className="mt-3 block text-xs text-white/52">Explore saved ideas →</span>
+                                  </button>
                                 );
                               })}
-                              {selectedInboxItem.graph.nodes.map((node) => (
-                                <g key={node.id}>
-                                  <circle
-                                    cx={node.x}
-                                    cy={node.y}
-                                    r={node.tier === "core" ? 12 : 8}
-                                    fill={node.tier === "core" ? "rgba(103,151,231,0.94)" : "rgba(44,72,122,0.96)"}
-                                    stroke="rgba(222,236,255,0.45)"
-                                    strokeWidth="1.2"
-                                  />
-                                  <circle
-                                    cx={node.x}
-                                    cy={node.y}
-                                    r={node.tier === "core" ? 7 : 4}
-                                    fill="rgba(217,233,255,0.16)"
-                                  />
-                                  <text
-                                    x={node.x}
-                                    y={node.y + (node.tier === "core" ? 20 : 15)}
-                                    textAnchor="middle"
-                                    className="fill-white text-[4px]"
-                                  >
-                                    {node.label}
-                                  </text>
-                                </g>
-                              ))}
-                            </svg>
+                            </div>
                           </div>
 
                           <div className="mt-4 flex flex-wrap gap-2">
@@ -2207,7 +2191,7 @@ export default function Page() {
                           </div>
                         </article>
                       ) : (
-                        <article className="rounded-[22px] border border-white/10 bg-white/[0.04] p-4">
+                        <article className="min-w-0 rounded-[22px] border border-white/10 bg-white/[0.04] p-5 md:p-6">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9ec4ff]">Serendipity Push</p>
                           <h3 className="mt-2 text-xl text-white" style={{ fontFamily: "var(--font-heading)" }}>
                             {selectedInboxItem.title}
@@ -2226,10 +2210,10 @@ export default function Page() {
                               Related island: {selectedInboxItem.relatedIsland}
                             </span>
                             <button
-                              onClick={() => openCanvasDetail(selectedInboxItem.relatedIsland)}
+                              onClick={() => openIsland(selectedInboxItem.relatedIsland)}
                               className="rounded-full bg-[linear-gradient(135deg,#204169,#315f96)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-95"
                             >
-                              Open in Builder
+                              Explore related knowledge
                             </button>
                           </div>
                         </article>
@@ -2241,36 +2225,45 @@ export default function Page() {
             ) : activePanel === "builder" ? (
               <div className="space-y-4">
 
+                {builderSourceId ? (
+                  <button
+                    onClick={() => setBuilderSourceId(null)}
+                    className="rounded-full border border-[#6ba5ff]/28 bg-[#193152] px-4 py-2 text-sm text-[#b9d5ff] transition hover:bg-[#23416a]"
+                  >
+                    ← All saved sources
+                  </button>
+                ) : null}
+
                 <section className="rounded-[24px] border border-white/8 bg-white/[0.045] p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/46">Live Takeaways</p>
                       <p className="mt-1 text-sm text-white/62">
-                        {liveDraftCount
-                          ? `${selectedDraftCount} selected / ${liveDraftCount} live draft takeaway${liveDraftCount === 1 ? "" : "s"} · ${savedMemoryCount} already saved in memory`
-                          : savedMemoryCount
-                            ? `${savedMemoryCount} saved memory item${savedMemoryCount === 1 ? "" : "s"} already grounded in this demo workspace.`
+                        {builderDraftCount
+                          ? `${builderSelectedDraftCount} selected / ${builderDraftCount} live draft takeaway${builderDraftCount === 1 ? "" : "s"} · ${builderSavedCount} already saved in memory`
+                          : builderSavedCount
+                            ? `${builderSavedCount} saved memory item${builderSavedCount === 1 ? "" : "s"} in this view.`
                             : "Parse a source to generate live draft takeaways for selection and saving."}
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <button
-                        onClick={() => setAllDraftTakeawaysEnabled(true)}
-                        disabled={liveDraftCount === 0}
+                        onClick={() => setAllDraftTakeawaysEnabled(true, builderSourceId)}
+                        disabled={builderDraftCount === 0}
                         className="rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-xs text-white/74 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
                       >
                         Select all
                       </button>
                       <button
-                        onClick={() => setAllDraftTakeawaysEnabled(false)}
-                        disabled={liveDraftCount === 0}
+                        onClick={() => setAllDraftTakeawaysEnabled(false, builderSourceId)}
+                        disabled={builderDraftCount === 0}
                         className="rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-xs text-white/74 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
                       >
                         Clear
                       </button>
                       <button
-                        onClick={() => void saveSelectedToBrain()}
-                        disabled={savingBrain || selectedDraftCount === 0}
+                        onClick={() => void saveSelectedToBrain(builderSourceId)}
+                        disabled={savingBrain || builderSelectedDraftCount === 0}
                         className="inline-flex items-center gap-2 rounded-full bg-[linear-gradient(135deg,#204169,#315f96)] px-4 py-2 text-sm font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {savingBrain ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
@@ -2350,72 +2343,79 @@ export default function Page() {
                   )}
                 </section>
 
-                {activeCanvasDetail ? (
-                  <section className="rounded-[24px] border border-[#6ba5ff]/20 bg-[linear-gradient(180deg,rgba(18,34,58,0.94),rgba(11,22,40,0.96))] p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9ec4ff]">Island Thread</p>
-                        <h2 className="mt-2 text-2xl text-white" style={{ fontFamily: "var(--font-heading)" }}>
-                          {activeCanvasDetail.title}
-                        </h2>
-                      </div>
-                      <button
-                        onClick={() => setActiveCanvasDetail(null)}
-                        className="rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-xs text-white/70"
-                      >
-                        Back to full builder
-                      </button>
-                    </div>
-                    <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/72">{activeCanvasDetail.summary}</p>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {activeCanvasDetail.evidence.map((item) => (
-                        <span key={item} className="rounded-full bg-white/10 px-3 py-1 text-[11px] text-white/76">
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  </section>
-                ) : null}
-
-                <section className="grid gap-4 xl:grid-cols-2">
-                  {presetIslandModules
-                    .filter((module) => (activeCanvasDetail ? module.label === activeCanvasDetail.title : true))
-                    .map((module) => (
-                      <article
-                        key={module.id}
-                        className={`rounded-[24px] border p-4 shadow-[0_12px_28px_rgba(0,0,0,0.28)] ${
-                          module.role === "main"
-                            ? "border-[#6ba5ff]/22 bg-[linear-gradient(180deg,rgba(28,49,82,0.86),rgba(13,25,43,0.96))] xl:col-span-2"
-                            : "border-white/10 bg-[linear-gradient(180deg,rgba(18,31,52,0.72),rgba(11,21,37,0.9))]"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9ec4ff]">
-                              {module.role === "main" ? "Main Island" : "Satellite Island"}
-                            </p>
-                            <h3 className="mt-2 text-2xl text-white" style={{ fontFamily: "var(--font-heading)" }}>
-                              {module.label}
-                            </h3>
-                          </div>
-                          {activeCanvasDetail?.title === module.label ? (
-                            <span className="rounded-full border border-[#6ba5ff]/24 bg-[#21416a]/70 px-3 py-1 text-[11px] text-[#b9d5ff]">
-                              Focused
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className="mt-3 text-sm leading-relaxed text-white/72">{module.summary}</p>
-                        <div className="mt-4 space-y-2">
-                          {module.details.map((detail) => (
-                            <div key={detail} className="rounded-[18px] bg-white/6 px-3 py-3 text-sm leading-relaxed text-white/76">
-                              {detail}
-                            </div>
-                          ))}
-                        </div>
-                      </article>
-                    ))}
+              </div>
+            ) : activePanel === "island" ? (
+              <div className="mx-auto max-w-3xl space-y-5">
+                <nav className="flex flex-wrap gap-2" aria-label="Knowledge topics">
+                  {presetIslandModules.map((island) => (
+                    <button
+                      key={island.id}
+                      onClick={() => openIsland(island.label)}
+                      aria-pressed={selectedIsland.id === island.id}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${selectedIsland.id === island.id ? "border-[#6ba5ff]/50 bg-[#21416a] text-white" : "border-white/10 bg-white/[0.05] text-white/64 hover:bg-white/10"}`}
+                    >
+                      {island.label}
+                    </button>
+                  ))}
+                </nav>
+                <section className="rounded-[24px] border border-[#6ba5ff]/20 bg-[linear-gradient(180deg,rgba(18,34,58,0.94),rgba(11,22,40,0.96))] p-5">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9ec4ff]">Connected knowledge</p>
+                  <p className="mt-3 text-base leading-relaxed text-white/82">{selectedIsland.summary}</p>
+                  <p className="mt-3 text-sm text-white/54">
+                    {selectedIslandConversations.length} related conversations · {selectedIslandTakeaways.length} saved ideas
+                  </p>
                 </section>
 
+                <section className="rounded-[24px] border border-white/10 bg-white/[0.045] p-5">
+                  <h2 className="text-xl font-semibold text-white">Related conversations</h2>
+                  <p className="mt-1 text-sm text-white/58">Open the discussion where these ideas were used.</p>
+                  <div className="mt-4 space-y-2">
+                    {selectedIslandConversations.length ? selectedIslandConversations.map((conversation) => (
+                      <button
+                        key={conversation.id}
+                        onClick={() => openConversation(conversation.id)}
+                        className="flex w-full items-center justify-between gap-4 rounded-[18px] border border-white/10 bg-white/[0.05] px-4 py-3 text-left transition hover:border-[#6ba5ff]/40 hover:bg-[#193152]"
+                      >
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold text-white">{conversation.title}</span>
+                          <span className="mt-1 block text-xs text-white/52">{conversation.messageCount} messages</span>
+                        </span>
+                        <span className="shrink-0 text-xs font-semibold text-[#b9d5ff]">Open chat →</span>
+                      </button>
+                    )) : <p className="rounded-[18px] bg-white/[0.04] px-4 py-3 text-sm text-white/58">No conversation is linked to this topic yet.</p>}
+                  </div>
+                </section>
+
+                <section className="rounded-[24px] border border-white/10 bg-white/[0.045] p-5">
+                  <h2 className="text-xl font-semibold text-white">Saved ideas by source</h2>
+                  <p className="mt-1 text-sm text-white/58">Only ideas you chose to keep appear here.</p>
+                  <div className="mt-4 space-y-3">
+                    {selectedIslandSources.length ? selectedIslandSources.map((source) => {
+                      const sourceItems = selectedIslandTakeaways.filter((item) => item.podcastId === source.id);
+                      return (
+                        <article key={source.id} className="rounded-[18px] border border-white/10 bg-white/[0.05] p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#9ec4ff]">{source.domain}</p>
+                          <h3 className="mt-1 text-sm font-semibold text-white">{source.title}</h3>
+                          <div className="mt-3 space-y-2">
+                            {sourceItems.slice(0, 2).map((item) => (
+                              <p key={item.id} className="rounded-xl bg-white/[0.05] px-3 py-2 text-sm leading-relaxed text-white/74">{item.text}</p>
+                            ))}
+                            {!sourceItems.length ? <p className="text-sm text-white/50">No saved ideas from this source yet.</p> : null}
+                          </div>
+                          <button
+                            onClick={() => {
+                              setBuilderSourceId(source.id);
+                              setActivePanel("builder");
+                            }}
+                            className="mt-3 text-sm font-semibold text-[#b9d5ff] hover:text-white"
+                          >
+                            View source memory ({sourceItems.length}) →
+                          </button>
+                        </article>
+                      );
+                    }) : <p className="rounded-[18px] bg-white/[0.04] px-4 py-3 text-sm text-white/58">No saved source is linked to this topic yet. Add a source to start building memory.</p>}
+                  </div>
+                </section>
               </div>
             ) : bootstrapping ? (
               <div className="flex h-full items-center justify-center">
@@ -2428,13 +2428,13 @@ export default function Page() {
               <section className="mx-auto flex h-full max-w-4xl flex-col justify-center">
                 <p className="inline-flex w-fit items-center gap-2 rounded-full border border-teal/20 bg-teal/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-teal">
                   <WandSparkles className="h-3.5 w-3.5" />
-                  Active synthesis demo
+                  {isDemoMode ? "Example workspace" : "Your workspace"}
                 </p>
-                <h2 className="mt-5 max-w-4xl text-balance text-6xl leading-[0.92] text-white" style={{ fontFamily: "var(--font-heading)" }}>
-                  Don&apos;t just collect fragments. Compose them.
+                <h2 className="mt-5 max-w-4xl text-balance text-5xl leading-tight text-white" style={{ fontFamily: "var(--font-heading)" }}>
+                  Turn scattered content into ideas you can use again.
                 </h2>
                 <p className="mt-4 max-w-3xl text-base leading-relaxed text-white/62">
-                  Inspiration keeps the original podcast parsing pipeline, but drops it into a quieter midnight interface focused on synthesis instead of clutter.
+                  Add a source, select the ideas worth remembering, and ask questions grounded in what you kept.
                 </p>
                 <div className="mt-8 grid gap-3 md:grid-cols-3">
                   {legacyCards.map((card) => (
@@ -2446,6 +2446,17 @@ export default function Page() {
               </section>
             ) : (
               <div className="mx-auto flex max-w-4xl flex-col gap-3">
+                {isDemoMode ? (
+                  <section className="mb-2 rounded-[22px] border border-[#6ba5ff]/24 bg-[linear-gradient(135deg,rgba(31,57,94,0.8),rgba(14,27,47,0.88))] p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9ec4ff]">Explore the example</p>
+                    <p className="mt-2 text-base font-semibold text-white">From a saved source to an answer you can trust.</p>
+                    <p className="mt-1 text-sm leading-relaxed text-white/68">The answer below draws on ideas selected from a source. See what was kept, then explore how those ideas connect to other topics.</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button onClick={() => { setBuilderSourceId(activeConversation.podcastIds[0] ?? null); setActivePanel("builder"); }} className="rounded-full bg-[#315f96] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#3a70ad]">See selected ideas →</button>
+                      <button onClick={() => openIsland("Compounding Systems")} className="rounded-full border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/82 hover:bg-white/10">Explore connections →</button>
+                    </div>
+                  </section>
+                ) : null}
                 {activeConversation.messages.map((message) => (
                   <article
                     key={message.id}
@@ -2473,14 +2484,14 @@ export default function Page() {
             )}
           </div>
 
-          <div className="border-t border-white/8 bg-[linear-gradient(180deg,rgba(9,17,30,0.86),rgba(7,13,24,0.96))] px-5 py-4">
+          {activePanel === "chat" || activePanel === "builder" ? <div className="border-t border-white/8 bg-[linear-gradient(180deg,rgba(9,17,30,0.86),rgba(7,13,24,0.96))] px-5 py-4">
             {hint ? <p className="mb-3 text-xs text-teal">{hint}</p> : null}
             <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,29,48,0.9),rgba(10,19,34,0.96))] p-4 shadow-[0_20px_44px_rgba(0,0,0,0.34)]">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#7f9bc7]">
                     <Sparkles className="h-3.5 w-3.5" />
-                    Multi-modal Input Island
+                    Add a source or ask a question
                   </p>
                 </div>
               </div>
@@ -2517,38 +2528,42 @@ export default function Page() {
                 </div>
               ) : null}
 
-              <div className="mt-4 flex gap-2">
-                <div className="flex flex-1 items-end gap-2 rounded-[22px] border border-white/10 bg-[#0f1b30] px-3 py-2">
+              <div className="mt-4 flex flex-wrap gap-2">
+                <div className="flex min-w-[220px] flex-1 items-end gap-2 rounded-[22px] border border-white/10 bg-[#0f1b30] px-3 py-2">
                   <MessageSquare className="mb-2 h-4 w-4 shrink-0 text-white/42" />
                   <textarea
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
                     onPaste={onInputPaste}
                     rows={2}
-                    placeholder="Paste a podcast or long-video link, notes, or ask Inspiration about your curated memory..."
+                    placeholder="Paste a link or note to extract ideas, or ask about saved memory..."
                     className="max-h-32 min-h-[52px] w-full resize-none bg-transparent text-sm text-white placeholder:text-white/28 focus:outline-none"
                   />
                 </div>
                 <button
                   onClick={() => void startParseAudio()}
                   disabled={parseState.running}
-                  className="inline-flex h-12 items-center justify-center rounded-[18px] bg-teal px-4 text-sm font-semibold text-white transition hover:bg-teal/90 disabled:cursor-not-allowed disabled:opacity-60"
+                  title="Extract ideas from the source in the input"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-[18px] bg-teal px-4 text-sm font-semibold text-white transition hover:bg-teal/90 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {parseState.running ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Waves className="h-4 w-4" />}
+                  Extract
                 </button>
                 <button
                   onClick={() => void sendMessage()}
                   disabled={chatBusy}
-                  className="inline-flex h-12 items-center justify-center rounded-[18px] bg-[linear-gradient(135deg,#1b3a61,#274a77)] px-4 text-sm font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
+                  title="Ask a question using saved memory"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-[18px] bg-[linear-gradient(135deg,#1b3a61,#274a77)] px-4 text-sm font-semibold text-white transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <Send className="h-4 w-4" />
+                  Ask
                 </button>
               </div>
             </div>
-          </div>
+          </div> : null}
         </section>
 
-        <div className="group flex h-full items-center justify-center">
+        {activePanel !== "inbox" ? <><div className="workspace-right-resizer group flex h-full items-center justify-center">
           <button
             type="button"
             aria-label="Resize center and right panels"
@@ -2559,14 +2574,15 @@ export default function Page() {
           </button>
         </div>
 
-        <aside className="flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(8,14,25,0.88),rgba(7,12,20,0.98))] shadow-[0_24px_70px_rgba(0,0,0,0.34)]">
+        <aside className="workspace-islands flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(8,14,25,0.88),rgba(7,12,20,0.98))] shadow-[0_24px_70px_rgba(0,0,0,0.34)]">
           <div className="night-scroll flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
             <div className="flex-none">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8caee6]">Islands</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8caee6]">Knowledge map</p>
               <h3 className="mt-2 text-2xl text-white" style={{ fontFamily: "var(--font-heading)" }}>
-                Mind Overview & Insights
+                Explore connections
               </h3>
-              {insightCluster ? <p className="mt-2 text-sm text-white/60">{insightCluster.title}</p> : null}
+              <p className="mt-2 text-sm text-white/64">Choose an island to open its related conversations and saved ideas.</p>
+              {insightCluster ? <p className="mt-1 text-xs text-white/42">{insightCluster.title}</p> : null}
             </div>
 
             <div className="relative min-h-[420px] flex-1 overflow-hidden rounded-[34px] bg-[radial-gradient(circle_at_20%_20%,rgba(57,83,118,0.38),transparent_30%),radial-gradient(circle_at_82%_18%,rgba(110,150,214,0.18),transparent_18%),radial-gradient(circle_at_65%_75%,rgba(42,83,148,0.2),transparent_20%),linear-gradient(180deg,rgba(5,10,20,0.98),rgba(10,17,31,0.98))]">
@@ -2585,7 +2601,9 @@ export default function Page() {
               </svg>
 
               <button
-                onClick={() => openCanvasDetail(canvasLabels[0] ?? "Main Island")}
+                onClick={() => openIsland(canvasLabels[0] ?? "Main Island")}
+                aria-label={`Explore ${canvasLabels[0] ?? "Main Island"} knowledge`}
+                aria-pressed={activePanel === "island" && selectedIsland.id === presetMainIsland.id}
                 className="island-pulse island-mass absolute left-[23%] top-[38%] z-10 h-52 w-56 overflow-hidden border border-[#85b5ff]/20 text-white shadow-[0_0_70px_rgba(87,140,255,0.18)] transition hover:scale-[1.02]"
                 style={{ borderRadius: "44% 56% 52% 48% / 46% 44% 56% 54%" }}
               >
@@ -2598,8 +2616,8 @@ export default function Page() {
 
               {canvasLabels.slice(1, 5).map((label, index) => {
                 const positions = [
-                  { top: "18%", left: "68%" },
-                  { top: "68%", left: "70%" },
+                  { top: "18%", left: "60%" },
+                  { top: "68%", left: "60%" },
                   { top: "16%", left: "10%" },
                   { top: "72%", left: "10%" }
                 ];
@@ -2615,7 +2633,9 @@ export default function Page() {
                     key={label}
                     className="floating-node island-mass absolute z-10 h-20 w-32 overflow-hidden border border-[#85b5ff]/14 px-4 py-2 text-xs text-white/82 shadow-[0_0_28px_rgba(104,145,255,0.14)] transition hover:scale-[1.02]"
                     style={{ ...position, borderRadius: radii[index] }}
-                    onClick={() => openCanvasDetail(label)}
+                    onClick={() => openIsland(label)}
+                    aria-label={`Explore ${label} knowledge`}
+                    aria-pressed={activePanel === "island" && selectedIsland.label === label}
                   >
                     <span className="island-shore absolute inset-[6px]" style={{ borderRadius: radii[index] }} />
                     <span className="island-ridge absolute left-[16%] top-[18%] h-5 w-9 opacity-75" style={{ borderRadius: "52% 48% 60% 40% / 42% 58% 42% 58%" }} />
@@ -2642,7 +2662,7 @@ export default function Page() {
               </section>
             </div>
           </div>
-        </aside>
+        </aside></> : null}
       </div>
     </main>
   );

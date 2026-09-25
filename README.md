@@ -1,7 +1,9 @@
 # Inspiration
 
-**Don’t just collect fragments. Compose them.**  
-Turn multimodal inputs into curated memory, grounded answers, and proactive synthesis.
+**Turn scattered content into ideas you can use again.**
+Add podcasts, videos, images, or notes. Choose the ideas worth keeping, then ask questions grounded in your saved memory and discover connections across sources.
+
+[Try the example workspace](https://pod-brain-teal.vercel.app/) to follow a complete source → selected ideas → grounded answer flow. The public Demo Mode uses sample content and simulated AI behavior; Live Mode runs with the local backend.
 
 ## Product Summary
 
@@ -18,8 +20,8 @@ The product expands from podcast-first memory capture into an omni-channel knowl
 It preserves the original Human-in-the-Loop RAG foundation while introducing:
 
 - multimodal input
-- Global RAG Builder
-- Midnight Islands knowledge canvas
+- a memory curation view
+- a clickable knowledge map that links topics to saved ideas and conversations
 - Agent Inbox
 - nightly knowledge graph generation
 - serendipity prompts that reconnect new ideas to historical memory

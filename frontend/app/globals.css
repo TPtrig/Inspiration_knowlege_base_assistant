@@ -20,7 +20,7 @@ body {
   margin: 0;
   min-height: 100vh;
   color: #f2f6ff;
-  font-family: var(--font-body), serif;
+  font-family: var(--font-heading), system-ui, sans-serif;
   background:
     radial-gradient(circle at 88% 12%, rgba(81, 122, 208, 0.18), transparent 20%),
     radial-gradient(circle at 12% 84%, rgba(34, 79, 156, 0.16), transparent 24%),
@@ -67,6 +67,90 @@ body {
 
 .island-pulse {
   animation: island-breathe 5.2s ease-in-out infinite;
+}
+
+.island-mass[aria-pressed="true"] {
+  outline: 2px solid rgba(166, 205, 255, 0.9);
+  outline-offset: 4px;
+}
+
+@media (max-width: 1199px) {
+  .workspace-grid {
+    grid-template-columns: 240px 12px minmax(0, 1fr) !important;
+  }
+
+  .workspace-right-resizer,
+  .workspace-islands {
+    display: none;
+  }
+}
+
+@media (max-width: 720px) {
+  .workspace-shell {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+    padding: 12px;
+  }
+
+  .workspace-grid {
+    display: flex;
+    height: auto;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .workspace-sidebar {
+    height: auto;
+    flex: none;
+  }
+
+  .workspace-conversations {
+    max-height: none;
+    overflow: visible;
+    padding-top: 10px;
+    padding-bottom: 12px;
+  }
+
+  .workspace-sidebar-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .workspace-sidebar-actions button:last-child {
+    grid-column: 1 / -1;
+  }
+
+  .workspace-sidebar-actions button {
+    padding: 10px 8px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .workspace-conversation-list {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .workspace-conversation-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .workspace-conversation-list button {
+    width: 180px;
+    flex: none;
+  }
+
+  .workspace-left-resizer {
+    display: none;
+  }
+
+  .workspace-main {
+    height: max(750px, calc(100dvh - 24px));
+    margin: 0;
+  }
 }
 
 .energy-line {
