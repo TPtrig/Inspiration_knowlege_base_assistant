@@ -19,12 +19,36 @@
 body {
   margin: 0;
   min-height: 100vh;
-  color: #f2f6ff;
-  font-family: var(--font-heading), system-ui, sans-serif;
-  background:
-    radial-gradient(circle at 88% 12%, rgba(81, 122, 208, 0.18), transparent 20%),
-    radial-gradient(circle at 12% 84%, rgba(34, 79, 156, 0.16), transparent 24%),
-    linear-gradient(155deg, #050915 0%, #09111f 48%, #0a1426 100%);
+  color: #203640;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f1f5f3;
+}
+
+.workspace-shell {
+  background: radial-gradient(circle at 92% 8%, #e3efec, transparent 34%), #f1f5f3;
+}
+
+.workspace-sidebar,
+.workspace-main,
+.workspace-islands {
+  box-shadow: 0 16px 40px rgba(38, 66, 69, 0.07);
+}
+
+.workspace-sidebar {
+  background: #fafcfb;
+}
+
+.workspace-main {
+  background: #f8fbfa;
+}
+
+.workspace-islands {
+  background: #fbfdfc;
+}
+
+.workspace-main article,
+.workspace-main section {
+  overflow-wrap: anywhere;
 }
 
 .text-balance {
@@ -40,28 +64,29 @@ body {
   align-items: center;
   justify-content: center;
   background:
-    radial-gradient(circle at 28% 26%, rgba(215, 231, 255, 0.24), transparent 18%),
-    radial-gradient(circle at 72% 68%, rgba(103, 151, 231, 0.16), transparent 22%),
-    radial-gradient(circle at 48% 46%, rgba(84, 118, 176, 0.94) 0%, rgba(42, 64, 104, 0.96) 48%, rgba(18, 30, 54, 0.98) 100%);
+    radial-gradient(circle at 28% 26%, rgba(255, 255, 255, 0.72), transparent 20%),
+    radial-gradient(circle at 72% 68%, rgba(105, 179, 169, 0.18), transparent 24%),
+    linear-gradient(150deg, #d9eeea 0%, #b7dad3 60%, #a5cec7 100%);
+  color: #1c5559;
 }
 
 .island-shore {
-  border: 1px solid rgba(230, 242, 255, 0.34);
+  border: 1px solid rgba(41, 111, 109, 0.22);
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.05),
-    inset 0 10px 24px rgba(201, 224, 255, 0.08);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.32),
+    inset 0 10px 24px rgba(255, 255, 255, 0.24);
 }
 
 .island-ridge {
   background:
-    radial-gradient(circle at 34% 34%, rgba(248, 252, 255, 0.2), transparent 24%),
-    linear-gradient(145deg, rgba(119, 154, 212, 0.46), rgba(51, 76, 122, 0.08));
+    radial-gradient(circle at 34% 34%, rgba(255, 255, 255, 0.6), transparent 24%),
+    linear-gradient(145deg, rgba(107, 177, 164, 0.38), rgba(86, 146, 137, 0.06));
   filter: blur(0.4px);
 }
 
 .island-lagoon {
   background:
-    radial-gradient(circle at 30% 32%, rgba(161, 207, 255, 0.26), rgba(73, 113, 188, 0.14) 52%, transparent 74%);
+    radial-gradient(circle at 30% 32%, rgba(255, 255, 255, 0.45), rgba(135, 198, 189, 0.18) 52%, transparent 74%);
   filter: blur(0.6px);
 }
 
@@ -70,7 +95,7 @@ body {
 }
 
 .island-mass[aria-pressed="true"] {
-  outline: 2px solid rgba(166, 205, 255, 0.9);
+  outline: 2px solid #398b86;
   outline-offset: 4px;
 }
 
@@ -106,10 +131,10 @@ body {
   }
 
   .workspace-conversations {
-    max-height: none;
+    max-height: 110px;
     overflow: visible;
-    padding-top: 10px;
-    padding-bottom: 12px;
+    padding-top: 8px;
+    padding-bottom: 8px;
   }
 
   .workspace-sidebar-actions {
@@ -139,8 +164,10 @@ body {
   }
 
   .workspace-conversation-list button {
-    width: 180px;
+    width: 164px;
     flex: none;
+    padding-top: 8px;
+    padding-bottom: 8px;
   }
 
   .workspace-left-resizer {
@@ -150,6 +177,11 @@ body {
   .workspace-main {
     height: max(750px, calc(100dvh - 24px));
     margin: 0;
+  }
+
+  .workspace-main h1 {
+    font-size: 1.7rem;
+    line-height: 1.15;
   }
 }
 
@@ -163,15 +195,15 @@ body {
   width: 180px;
   height: 1px;
   opacity: 0;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(208, 228, 255, 0.9), rgba(255, 255, 255, 0));
-  box-shadow: 0 0 14px rgba(170, 208, 255, 0.5);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0));
+  box-shadow: 0 0 14px rgba(255, 255, 255, 0.5);
   transform: rotate(-18deg) translateX(-140px);
   animation: shooting-star 8s linear infinite;
 }
 
 .night-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(113, 156, 230, 0.65) rgba(255, 255, 255, 0.06);
+  scrollbar-color: #b5d0cc transparent;
 }
 
 .night-scroll::-webkit-scrollbar {
@@ -179,14 +211,14 @@ body {
 }
 
 .night-scroll::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
+  background: transparent;
   border-radius: 999px;
 }
 
 .night-scroll::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(102, 147, 226, 0.9), rgba(57, 95, 166, 0.8));
+  background: #b5d0cc;
   border-radius: 999px;
-  border: 2px solid rgba(10, 18, 34, 0.85);
+  border: 2px solid #f8fbfa;
 }
 
 .smart-loader {

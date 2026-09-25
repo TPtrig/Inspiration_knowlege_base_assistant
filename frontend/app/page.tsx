@@ -1910,12 +1910,7 @@ export default function Page() {
   };
 
   const presetMainIsland = presetIslandModules[0];
-  const presetSmallIslands = presetIslandModules.slice(1);
   const canvasLabels = presetIslandModules.map((item) => item.label);
-  const todayIntention = summarizeTextTitle(presetMainIsland.summary);
-  const insightHighlights = presetSmallIslands.map((item) => summarizeTextTitle(item.summary));
-  const hiddenCommonality =
-    "Finance, business, and AI all point to the same hidden commonality: compounding systems make feedback visible early, preserve decisions over time, and turn constraints into better operating judgment.";
   const selectedIsland = presetIslandModules.find((item) => item.id === selectedIslandId) ?? presetMainIsland;
   const selectedIslandSources = podcasts.filter((podcast) => islandDomains[selectedIsland.id]?.includes(podcast.domain ?? ""));
   const selectedIslandSourceIds = new Set(selectedIslandSources.map((podcast) => podcast.id));
@@ -1964,22 +1959,22 @@ export default function Page() {
   };
 
   return (
-    <main className="workspace-shell h-screen overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(76,108,171,0.24),_transparent_18%),radial-gradient(circle_at_85%_10%,_rgba(86,141,255,0.16),_transparent_16%),linear-gradient(160deg,#050915_0%,#0a1222_45%,#0b1528_100%)] px-4 py-4 text-white md:px-6">
+    <main className="workspace-shell h-screen overflow-hidden bg-[#f1f5f3] px-4 py-4 text-slate-900 md:px-6">
       <div
         ref={layoutRef}
         className="workspace-grid mx-auto grid h-full w-full max-w-[1720px] items-stretch gap-0"
         style={{ gridTemplateColumns: activePanel === "inbox" ? `${leftPaneWidth}px 12px minmax(0,1fr)` : `${leftPaneWidth}px 12px minmax(0,1fr) 12px ${rightPaneWidth}px` }}
       >
-        <aside className="workspace-sidebar flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-white/8 bg-[linear-gradient(180deg,rgba(9,17,30,0.92),rgba(7,13,24,0.96))] shadow-[0_24px_70px_rgba(0,0,0,0.34)]">
-          <div className="border-b border-white/8 px-4 py-4">
-            <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#90a6d2]">
+        <aside className="workspace-sidebar flex h-full min-h-0 flex-col overflow-hidden rounded-[28px] border border-[#dce5e8] bg-white shadow-[0_24px_70px_rgba(0,0,0,0.34)]">
+          <div className="border-b border-[#dce5e8] px-4 py-5">
+            <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#dce5e8] bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#58787c]">
               <Sparkles className="h-3.5 w-3.5" />
               Inspiration
             </p>
             <div className="workspace-sidebar-actions grid gap-2">
               <button
                 onClick={() => void createNewChat()}
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-[#dce5e8] bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-[#edf4f3]"
               >
                 <CirclePlus className="h-4 w-4" />
                 New chat
@@ -1989,14 +1984,14 @@ export default function Page() {
                   setBuilderSourceId(null);
                   setActivePanel("builder");
                 }}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#204169,#315f96)] px-4 py-3 text-sm font-semibold text-white transition hover:opacity-95"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#246b70,#3b8482)] px-4 py-3 text-sm font-semibold text-white transition hover:opacity-95"
               >
                 <Brain className="h-4 w-4" />
-                Curate memory {liveDraftCount > 0 ? <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs">{liveDraftCount}</span> : null}
+                Curate memory {liveDraftCount > 0 ? <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs">{liveDraftCount}</span> : null}
               </button>
               <button
                 onClick={() => openIsland(presetMainIsland.label)}
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/6 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-[#dce5e8] bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-[#edf4f3]"
               >
                 <Sparkles className="h-4 w-4" />
                 Explore knowledge
@@ -2005,7 +2000,7 @@ export default function Page() {
           </div>
 
           <div className="workspace-conversations min-h-0 flex-1 overflow-y-auto px-3 py-4">
-            <p className="mb-3 px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/46">Conversations</p>
+            <p className="mb-3 px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Conversations</p>
             <div className="workspace-conversation-list space-y-1.5">
               {conversationList.map((conversation) => (
                 <button
@@ -2015,12 +2010,12 @@ export default function Page() {
                   }}
                   className={`w-full rounded-[18px] border px-3 py-3 text-left text-sm transition ${
                     conversation.id === effectiveActiveConversationId
-                      ? "border-[#6ba5ff]/40 bg-[#21416a]/70 text-[#b9d5ff]"
-                      : "border-white/8 bg-white/5 text-white/68 hover:bg-white/10"
+                      ? "border-[#6ba5ff]/40 bg-[#e5edf8] text-[#315f69]"
+                      : "border-transparent bg-transparent text-slate-600 hover:border-[#dce5e8] hover:bg-white"
                   }`}
                 >
                   <p className="line-clamp-1 font-medium">{getConversationTitle(conversation)}</p>
-                  <p className="mt-1 text-[11px] text-white/40">{conversation.messageCount} messages</p>
+                  <p className="mt-1 text-[11px] text-slate-500">{conversation.messageCount} messages</p>
                 </button>
               ))}
             </div>
@@ -2034,21 +2029,21 @@ export default function Page() {
             onMouseDown={() => setDragPane("left")}
             className="relative h-full w-full cursor-col-resize"
           >
-            <span className="absolute left-1/2 top-1/2 h-24 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/10 transition group-hover:bg-[#6ba5ff]/60" />
+            <span className="absolute left-1/2 top-1/2 h-24 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white transition group-hover:bg-[#6ba5ff]/60" />
           </button>
         </div>
 
-        <section className="workspace-main mx-1 flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(10,18,34,0.92),rgba(8,14,26,0.94))] shadow-[0_24px_70px_rgba(0,0,0,0.42)]">
-          <div className="border-b border-white/8 px-5 py-4">
+        <section className="workspace-main mx-1 flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-[#dce5e8] bg-white shadow-[0_24px_70px_rgba(0,0,0,0.42)]">
+          <div className="border-b border-[#dce5e8] px-5 py-4">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h1 className="text-2xl text-white md:text-[2rem]" style={{ fontFamily: "var(--font-heading)" }}>
+                  <h1 className="text-2xl text-slate-900 md:text-[2rem]" style={{ fontFamily: "var(--font-heading)" }}>
                     {activePanel === "builder" ? "Curate memory" : activePanel === "inbox" ? "Agent Inbox" : activePanel === "island" ? selectedIsland.label : "Your knowledge workspace"}
                   </h1>
-                  {isDemoMode ? <span className="rounded-full border border-[#6ba5ff]/30 bg-[#21416a]/45 px-2.5 py-1 text-[11px] font-semibold text-[#b9d5ff]">Example workspace</span> : null}
+                  {isDemoMode ? <span className="rounded-full border border-[#6ba5ff]/30 bg-[#e5edf8] px-2.5 py-1 text-[11px] font-semibold text-[#315f69]">Example workspace</span> : null}
                 </div>
-                <p className="mt-1 text-sm text-white/62">
+                <p className="mt-1 text-sm text-slate-600">
                   {activePanel === "builder"
                     ? "Choose which extracted ideas become part of your memory."
                     : activePanel === "inbox"
@@ -2082,7 +2077,7 @@ export default function Page() {
                   <button
                     onClick={() => markAllInboxItemsRead()}
                     disabled={unreadInboxCount === 0}
-                    className="rounded-full border border-white/10 bg-white/6 px-3 py-2 text-xs text-white/72 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
+                    className="rounded-full border border-[#dce5e8] bg-white px-3 py-2 text-xs text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-45"
                   >
                     Mark all read
                   </button>
@@ -2091,17 +2086,17 @@ export default function Page() {
             </div>
           </div>
 
-          <div ref={contentScrollRef} className="night-scroll min-h-0 flex-1 overflow-y-auto px-5 py-5">
+          <div ref={contentScrollRef} className="night-scroll min-h-0 flex-1 overflow-y-auto px-5 py-6 md:px-7">
             {activePanel === "inbox" ? (
               <div className="mx-auto w-full max-w-[1220px] space-y-4">
-                <section className="rounded-[24px] border border-[#6ba5ff]/16 bg-[linear-gradient(180deg,rgba(14,25,44,0.94),rgba(9,17,31,0.98))] p-5 md:p-6">
+                <section className="rounded-[24px] border border-[#dce5e8] bg-white p-5 md:p-7">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9ec4ff]">Recent updates</p>
-                      <p className="mt-1 text-sm text-white/62">Select an update to read its evidence and next step.</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#487881]">Recent updates</p>
+                      <p className="mt-1 text-sm text-slate-600">Select an update to read its evidence and next step.</p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center gap-2 rounded-full bg-white/6 px-3 py-1.5 text-xs text-white/72">
+                      <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs text-slate-700">
                         Knowledge Graph
                         {unreadGraphCount > 0 ? (
                           <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[#df4b57] px-1 text-[10px] font-bold text-white">
@@ -2109,7 +2104,7 @@ export default function Page() {
                           </span>
                         ) : null}
                       </span>
-                      <span className="inline-flex items-center gap-2 rounded-full bg-white/6 px-3 py-1.5 text-xs text-white/72">
+                      <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1.5 text-xs text-slate-700">
                         Serendipity Push
                         {unreadPushCount > 0 ? (
                           <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-[#df4b57] px-1 text-[10px] font-bold text-white">
@@ -2120,7 +2115,7 @@ export default function Page() {
                     </div>
                   </div>
 
-                  <div className="mt-6 grid items-start gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+                  <div className="mt-7 grid items-start gap-6 lg:grid-cols-[260px_minmax(0,1fr)]">
                     <div className="space-y-2" aria-label="Inbox updates">
                       {inboxItems.map((item) => (
                         <button
@@ -2128,42 +2123,42 @@ export default function Page() {
                           onClick={() => openInboxItem(item.id)}
                           className={`w-full rounded-[20px] border px-4 py-3 text-left transition ${
                             selectedInboxItem?.id === item.id
-                              ? "border-[#6ba5ff]/30 bg-[#193152]"
-                              : "border-white/8 bg-white/[0.04] hover:bg-white/[0.08]"
+                              ? "border-[#6ba5ff]/30 bg-[#e8f0f5]"
+                              : "border-[#dce5e8] bg-white hover:bg-[#f3f8f6]"
                           }`}
                         >
                           <div className="flex items-start justify-between gap-3">
                             <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9ec4ff]">
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#487881]">
                                 {item.kind === "graph" ? "Knowledge Graph" : "Serendipity Push"}
                               </p>
-                              <p className="mt-2 text-sm font-semibold text-white">{item.title}</p>
-                              <p className="mt-1 text-xs text-white/52">{item.createdAtLabel}</p>
+                              <p className="mt-2 text-sm font-semibold text-slate-900">{item.title}</p>
+                              <p className="mt-1 text-xs text-slate-500">{item.createdAtLabel}</p>
                             </div>
                             {item.unread ? <span className="mt-1 h-2.5 w-2.5 rounded-full bg-[#df4b57]" /> : null}
                           </div>
-                          <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-white/64">{item.summary}</p>
+                          <p className="mt-2 line-clamp-1 text-xs leading-relaxed text-slate-600">{item.summary}</p>
                         </button>
                       ))}
                     </div>
 
                     {selectedInboxItem ? (
                       selectedInboxItem.kind === "graph" ? (
-                        <article className="min-w-0 rounded-[22px] border border-white/10 bg-white/[0.04] p-5 md:p-6">
+                        <article className="min-w-0 rounded-[22px] border border-[#dce5e8] bg-[#fbfdfc] p-5 md:p-7">
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9ec4ff]">Knowledge Graph Preview</p>
-                              <h3 className="mt-2 text-xl text-white" style={{ fontFamily: "var(--font-heading)" }}>
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#487881]">Knowledge Graph Preview</p>
+                              <h3 className="mt-2 text-xl text-slate-900" style={{ fontFamily: "var(--font-heading)" }}>
                                 {selectedInboxItem.graph.title}
                               </h3>
                             </div>
-                            <span className="rounded-full bg-white/6 px-3 py-1 text-[11px] text-white/72">Nightly agent run · 20:00</span>
+                            <span className="rounded-full bg-white px-3 py-1 text-[11px] text-slate-700">Nightly agent run · 20:00</span>
                           </div>
-                          <p className="mt-3 text-sm leading-relaxed text-white/68">{selectedInboxItem.graph.summary}</p>
+                          <p className="mt-3 text-sm leading-relaxed text-slate-600">{selectedInboxItem.graph.summary}</p>
 
-                          <div className="mt-4 rounded-[22px] bg-[linear-gradient(180deg,rgba(8,16,29,0.98),rgba(11,21,39,0.96))] p-5">
+                          <div className="mt-5 rounded-[22px] border border-[#dce5e8] bg-white p-5">
                             {selectedInboxItem.graph.nodes.filter((node) => node.tier === "core").map((node) => (
-                              <div key={node.id} className="mx-auto max-w-sm rounded-[18px] border border-[#9ec4ff]/40 bg-[#315f96]/50 px-4 py-4 text-center text-base font-semibold text-white">
+                              <div key={node.id} className="mx-auto max-w-sm rounded-[18px] bg-[#dcefeb] px-4 py-4 text-center text-base font-semibold text-[#20555a]">
                                 {node.label}
                               </div>
                             ))}
@@ -2172,10 +2167,10 @@ export default function Page() {
                               {selectedInboxItem.graph.nodes.filter((node) => node.tier === "satellite").map((node) => {
                                 const connection = selectedInboxItem.graph.edges.find((edge) => edge.to === node.id && selectedInboxItem.graph.nodes.some((source) => source.id === edge.from && source.tier === "core"));
                                 return (
-                                  <button key={node.id} onClick={() => openIsland(node.label)} className="rounded-[18px] border border-white/12 bg-white/[0.06] px-4 py-4 text-left transition hover:border-[#9ec4ff]/45 hover:bg-[#21416a]">
-                                    <span className="block text-sm font-semibold text-white">{node.label}</span>
-                                    {connection ? <span className="mt-1 block text-xs text-[#9ec4ff]">{connection.label}</span> : null}
-                                    <span className="mt-3 block text-xs text-white/52">Explore saved ideas →</span>
+                                  <button key={node.id} onClick={() => openIsland(node.label)} className="rounded-[18px] border border-[#dce5e8] bg-white px-4 py-4 text-left transition hover:border-[#9ec4ff]/45 hover:bg-[#e5edf8]">
+                                    <span className="block text-sm font-semibold text-slate-900">{node.label}</span>
+                                    {connection ? <span className="mt-1 block text-xs text-[#487881]">{connection.label}</span> : null}
+                                    <span className="mt-3 block text-xs text-slate-500">Explore saved ideas →</span>
                                   </button>
                                 );
                               })}
@@ -2184,29 +2179,29 @@ export default function Page() {
 
                           <div className="mt-4 flex flex-wrap gap-2">
                             {selectedInboxItem.graph.chips.map((chip) => (
-                              <span key={chip} className="rounded-full bg-white/6 px-3 py-1 text-[11px] text-white/72">
+                              <span key={chip} className="rounded-full bg-white px-3 py-1 text-[11px] text-slate-700">
                                 {chip}
                               </span>
                             ))}
                           </div>
                         </article>
                       ) : (
-                        <article className="min-w-0 rounded-[22px] border border-white/10 bg-white/[0.04] p-5 md:p-6">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9ec4ff]">Serendipity Push</p>
-                          <h3 className="mt-2 text-xl text-white" style={{ fontFamily: "var(--font-heading)" }}>
+                        <article className="min-w-0 rounded-[22px] border border-[#dce5e8] bg-[#fbfdfc] p-5 md:p-7">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#487881]">Serendipity Push</p>
+                          <h3 className="mt-2 text-xl text-slate-900" style={{ fontFamily: "var(--font-heading)" }}>
                             {selectedInboxItem.title}
                           </h3>
-                          <p className="mt-3 text-base leading-relaxed text-white/78">{selectedInboxItem.suggestion}</p>
-                          <p className="mt-4 text-sm leading-relaxed text-white/64">{selectedInboxItem.summary}</p>
-                          <div className="mt-4 space-y-2">
+                          <p className="mt-3 text-base leading-relaxed text-slate-700">{selectedInboxItem.suggestion}</p>
+                          <p className="mt-7 text-xs font-semibold uppercase tracking-[0.16em] text-[#487881]">Why this surfaced</p>
+                          <div className="mt-3 space-y-3">
                             {selectedInboxItem.evidence.map((item) => (
-                              <div key={item} className="rounded-[18px] bg-white/6 px-3 py-3 text-sm text-white/74">
+                              <div key={item} className="rounded-[16px] border-l-[3px] border-[#88bcb3] bg-[#edf6f3] px-4 py-3 text-sm leading-relaxed text-slate-700">
                                 {item}
                               </div>
                             ))}
                           </div>
                           <div className="mt-4 flex flex-wrap items-center gap-3">
-                            <span className="rounded-full bg-[#21416a]/70 px-3 py-1 text-[11px] text-[#b9d5ff]">
+                            <span className="rounded-full bg-[#e5edf8] px-3 py-1 text-[11px] text-[#315f69]">
                               Related island: {selectedInboxItem.relatedIsland}
                             </span>
                             <button
@@ -2228,17 +2223,17 @@ export default function Page() {
                 {builderSourceId ? (
                   <button
                     onClick={() => setBuilderSourceId(null)}
-                    className="rounded-full border border-[#6ba5ff]/28 bg-[#193152] px-4 py-2 text-sm text-[#b9d5ff] transition hover:bg-[#23416a]"
+                    className="rounded-full border border-[#6ba5ff]/28 bg-[#e8f0f5] px-4 py-2 text-sm text-[#315f69] transition hover:bg-[#dbe8ed]"
                   >
                     ← All saved sources
                   </button>
                 ) : null}
 
-                <section className="rounded-[24px] border border-white/8 bg-white/[0.045] p-4">
+                <section className="rounded-[24px] border border-[#dce5e8] bg-white p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/46">Live Takeaways</p>
-                      <p className="mt-1 text-sm text-white/62">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Live Takeaways</p>
+                      <p className="mt-1 text-sm text-slate-600">
                         {builderDraftCount
                           ? `${builderSelectedDraftCount} selected / ${builderDraftCount} live draft takeaway${builderDraftCount === 1 ? "" : "s"} · ${builderSavedCount} already saved in memory`
                           : builderSavedCount
@@ -2250,14 +2245,14 @@ export default function Page() {
                       <button
                         onClick={() => setAllDraftTakeawaysEnabled(true, builderSourceId)}
                         disabled={builderDraftCount === 0}
-                        className="rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-xs text-white/74 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
+                        className="rounded-full border border-[#dce5e8] bg-white px-3 py-1.5 text-xs text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-45"
                       >
                         Select all
                       </button>
                       <button
                         onClick={() => setAllDraftTakeawaysEnabled(false, builderSourceId)}
                         disabled={builderDraftCount === 0}
-                        className="rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-xs text-white/74 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-45"
+                        className="rounded-full border border-[#dce5e8] bg-white px-3 py-1.5 text-xs text-slate-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-45"
                       >
                         Clear
                       </button>
@@ -2273,18 +2268,18 @@ export default function Page() {
                   </div>
 
                   {!visibleTakeawayGroups.length ? (
-                    <div className="mt-4 rounded-[18px] bg-white/[0.04] px-4 py-4 text-sm text-white/52">
+                    <div className="mt-4 rounded-[18px] bg-white px-4 py-4 text-sm text-slate-500">
                       No live takeaways yet. Paste a link or note in the input area and run parse to populate this panel.
                     </div>
                   ) : (
                     <div className="mt-4 space-y-4">
                       {visibleTakeawayGroups.map(({ podcast, items }) => (
-                        <article key={podcast.id} className="rounded-[22px] border border-white/10 bg-white/6 p-4">
+                        <article key={podcast.id} className="rounded-[22px] border border-[#dce5e8] bg-white p-4">
                           <div className="mb-4 flex items-start justify-between gap-3">
                             <div>
-                              <p className="text-sm font-semibold text-white">{podcast.title}</p>
-                              <p className="mt-1 text-xs text-[#9ec4ff]">{podcast.sourceLabel}</p>
-                              <p className="mt-1 line-clamp-1 text-xs text-white/50">{podcast.url}</p>
+                              <p className="text-sm font-semibold text-slate-900">{podcast.title}</p>
+                              <p className="mt-1 text-xs text-[#487881]">{podcast.sourceLabel}</p>
+                              <p className="mt-1 line-clamp-1 text-xs text-slate-500">{podcast.url}</p>
                             </div>
                             <button
                               onClick={() => void deletePodcast(podcast.id)}
@@ -2297,7 +2292,7 @@ export default function Page() {
 
                           <div className="space-y-2">
                             {items.map((item) => (
-                              <div key={item.id} className="flex items-start gap-3 rounded-[20px] border border-white/8 bg-white/6 px-3 py-3">
+                              <div key={item.id} className="flex items-start gap-3 rounded-[20px] border border-[#dce5e8] bg-white px-3 py-3">
                                 <input
                                   type="checkbox"
                                   checked={item.enabled}
@@ -2312,24 +2307,24 @@ export default function Page() {
                                       className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] ${
                                         item.persisted
                                           ? "bg-emerald-500/16 text-emerald-200"
-                                          : "bg-[#21416a]/70 text-[#b9d5ff]"
+                                          : "bg-[#e5edf8] text-[#315f69]"
                                       }`}
                                     >
                                       {item.persisted ? "Saved memory" : "Live draft"}
                                     </span>
                                     {item.domain ? (
-                                      <span className="rounded-full bg-white/8 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60">
+                                      <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-600">
                                         {item.domain}
                                       </span>
                                     ) : null}
                                   </div>
-                                  <p className="text-sm leading-relaxed text-white/78">{item.text}</p>
+                                  <p className="text-sm leading-relaxed text-slate-700">{item.text}</p>
                                 </div>
                                 <button
                                   onClick={() => {
                                     void deleteTakeaway(item.id);
                                   }}
-                                  className="rounded-full border border-white/8 bg-white/6 p-2 text-white/60 transition hover:text-white"
+                                  className="rounded-full border border-[#dce5e8] bg-white p-2 text-slate-600 transition hover:text-slate-900"
                                   title="Delete takeaway"
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
@@ -2352,74 +2347,74 @@ export default function Page() {
                       key={island.id}
                       onClick={() => openIsland(island.label)}
                       aria-pressed={selectedIsland.id === island.id}
-                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${selectedIsland.id === island.id ? "border-[#6ba5ff]/50 bg-[#21416a] text-white" : "border-white/10 bg-white/[0.05] text-white/64 hover:bg-white/10"}`}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${selectedIsland.id === island.id ? "border-[#6ba5ff]/50 bg-[#e5edf8] text-slate-900" : "border-[#dce5e8] bg-white text-slate-600 hover:bg-white"}`}
                     >
                       {island.label}
                     </button>
                   ))}
                 </nav>
-                <section className="rounded-[24px] border border-[#6ba5ff]/20 bg-[linear-gradient(180deg,rgba(18,34,58,0.94),rgba(11,22,40,0.96))] p-5">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9ec4ff]">Connected knowledge</p>
-                  <p className="mt-3 text-base leading-relaxed text-white/82">{selectedIsland.summary}</p>
-                  <p className="mt-3 text-sm text-white/54">
+                <section className="rounded-[24px] border border-[#6ba5ff]/20 bg-white p-5">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#487881]">Connected knowledge</p>
+                  <p className="mt-3 text-base leading-relaxed text-slate-700">{selectedIsland.summary}</p>
+                  <p className="mt-3 text-sm text-slate-500">
                     {selectedIslandConversations.length} related conversations · {selectedIslandTakeaways.length} saved ideas
                   </p>
                 </section>
 
-                <section className="rounded-[24px] border border-white/10 bg-white/[0.045] p-5">
-                  <h2 className="text-xl font-semibold text-white">Related conversations</h2>
-                  <p className="mt-1 text-sm text-white/58">Open the discussion where these ideas were used.</p>
+                <section className="rounded-[24px] border border-[#dce5e8] bg-white p-5">
+                  <h2 className="text-xl font-semibold text-slate-900">Related conversations</h2>
+                  <p className="mt-1 text-sm text-slate-600">Open the discussion where these ideas were used.</p>
                   <div className="mt-4 space-y-2">
                     {selectedIslandConversations.length ? selectedIslandConversations.map((conversation) => (
                       <button
                         key={conversation.id}
                         onClick={() => openConversation(conversation.id)}
-                        className="flex w-full items-center justify-between gap-4 rounded-[18px] border border-white/10 bg-white/[0.05] px-4 py-3 text-left transition hover:border-[#6ba5ff]/40 hover:bg-[#193152]"
+                        className="flex w-full items-center justify-between gap-4 rounded-[18px] border border-[#dce5e8] bg-white px-4 py-3 text-left transition hover:border-[#6ba5ff]/40 hover:bg-[#e8f0f5]"
                       >
                         <span className="min-w-0">
-                          <span className="block truncate text-sm font-semibold text-white">{conversation.title}</span>
-                          <span className="mt-1 block text-xs text-white/52">{conversation.messageCount} messages</span>
+                          <span className="block truncate text-sm font-semibold text-slate-900">{conversation.title}</span>
+                          <span className="mt-1 block text-xs text-slate-500">{conversation.messageCount} messages</span>
                         </span>
-                        <span className="shrink-0 text-xs font-semibold text-[#b9d5ff]">Open chat →</span>
+                        <span className="shrink-0 text-xs font-semibold text-[#315f69]">Open chat →</span>
                       </button>
-                    )) : <p className="rounded-[18px] bg-white/[0.04] px-4 py-3 text-sm text-white/58">No conversation is linked to this topic yet.</p>}
+                    )) : <p className="rounded-[18px] bg-white px-4 py-3 text-sm text-slate-600">No conversation is linked to this topic yet.</p>}
                   </div>
                 </section>
 
-                <section className="rounded-[24px] border border-white/10 bg-white/[0.045] p-5">
-                  <h2 className="text-xl font-semibold text-white">Saved ideas by source</h2>
-                  <p className="mt-1 text-sm text-white/58">Only ideas you chose to keep appear here.</p>
+                <section className="rounded-[24px] border border-[#dce5e8] bg-white p-5">
+                  <h2 className="text-xl font-semibold text-slate-900">Saved ideas by source</h2>
+                  <p className="mt-1 text-sm text-slate-600">Only ideas you chose to keep appear here.</p>
                   <div className="mt-4 space-y-3">
                     {selectedIslandSources.length ? selectedIslandSources.map((source) => {
                       const sourceItems = selectedIslandTakeaways.filter((item) => item.podcastId === source.id);
                       return (
-                        <article key={source.id} className="rounded-[18px] border border-white/10 bg-white/[0.05] p-4">
-                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#9ec4ff]">{source.domain}</p>
-                          <h3 className="mt-1 text-sm font-semibold text-white">{source.title}</h3>
+                        <article key={source.id} className="rounded-[18px] border border-[#dce5e8] bg-white p-4">
+                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#487881]">{source.domain}</p>
+                          <h3 className="mt-1 text-sm font-semibold text-slate-900">{source.title}</h3>
                           <div className="mt-3 space-y-2">
                             {sourceItems.slice(0, 2).map((item) => (
-                              <p key={item.id} className="rounded-xl bg-white/[0.05] px-3 py-2 text-sm leading-relaxed text-white/74">{item.text}</p>
+                              <p key={item.id} className="rounded-xl bg-white px-3 py-2 text-sm leading-relaxed text-slate-700">{item.text}</p>
                             ))}
-                            {!sourceItems.length ? <p className="text-sm text-white/50">No saved ideas from this source yet.</p> : null}
+                            {!sourceItems.length ? <p className="text-sm text-slate-500">No saved ideas from this source yet.</p> : null}
                           </div>
                           <button
                             onClick={() => {
                               setBuilderSourceId(source.id);
                               setActivePanel("builder");
                             }}
-                            className="mt-3 text-sm font-semibold text-[#b9d5ff] hover:text-white"
+                            className="mt-3 text-sm font-semibold text-[#315f69] hover:text-slate-900"
                           >
                             View source memory ({sourceItems.length}) →
                           </button>
                         </article>
                       );
-                    }) : <p className="rounded-[18px] bg-white/[0.04] px-4 py-3 text-sm text-white/58">No saved source is linked to this topic yet. Add a source to start building memory.</p>}
+                    }) : <p className="rounded-[18px] bg-white px-4 py-3 text-sm text-slate-600">No saved source is linked to this topic yet. Add a source to start building memory.</p>}
                   </div>
                 </section>
               </div>
             ) : bootstrapping ? (
               <div className="flex h-full items-center justify-center">
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-4 py-2 text-sm text-white/62">
+                <div className="inline-flex items-center gap-2 rounded-full border border-[#dce5e8] bg-white px-4 py-2 text-sm text-slate-600">
                   <LoaderCircle className="h-4 w-4 animate-spin" />
                   Loading Inspiration workspace...
                 </div>
@@ -2430,16 +2425,16 @@ export default function Page() {
                   <WandSparkles className="h-3.5 w-3.5" />
                   {isDemoMode ? "Example workspace" : "Your workspace"}
                 </p>
-                <h2 className="mt-5 max-w-4xl text-balance text-5xl leading-tight text-white" style={{ fontFamily: "var(--font-heading)" }}>
+                <h2 className="mt-5 max-w-4xl text-balance text-5xl leading-tight text-slate-900" style={{ fontFamily: "var(--font-heading)" }}>
                   Turn scattered content into ideas you can use again.
                 </h2>
-                <p className="mt-4 max-w-3xl text-base leading-relaxed text-white/62">
+                <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-600">
                   Add a source, select the ideas worth remembering, and ask questions grounded in what you kept.
                 </p>
                 <div className="mt-8 grid gap-3 md:grid-cols-3">
                   {legacyCards.map((card) => (
-                    <article key={card} className="rounded-[22px] bg-white/[0.035] px-4 py-4">
-                      <p className="text-xs leading-relaxed text-white/72">{card}</p>
+                    <article key={card} className="rounded-[22px] bg-white px-4 py-4">
+                      <p className="text-xs leading-relaxed text-slate-700">{card}</p>
                     </article>
                   ))}
                 </div>
@@ -2447,13 +2442,12 @@ export default function Page() {
             ) : (
               <div className="mx-auto flex max-w-4xl flex-col gap-3">
                 {isDemoMode ? (
-                  <section className="mb-2 rounded-[22px] border border-[#6ba5ff]/24 bg-[linear-gradient(135deg,rgba(31,57,94,0.8),rgba(14,27,47,0.88))] p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#9ec4ff]">Explore the example</p>
-                    <p className="mt-2 text-base font-semibold text-white">From a saved source to an answer you can trust.</p>
-                    <p className="mt-1 text-sm leading-relaxed text-white/68">The answer below draws on ideas selected from a source. See what was kept, then explore how those ideas connect to other topics.</p>
+                  <section className="mb-2 rounded-[22px] border border-[#6ba5ff]/24 bg-[#e8f3ef] p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#487881]">Explore the example</p>
+                    <p className="mt-2 text-base font-semibold text-slate-900">From a saved source to an answer you can trust.</p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button onClick={() => { setBuilderSourceId(activeConversation.podcastIds[0] ?? null); setActivePanel("builder"); }} className="rounded-full bg-[#315f96] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#3a70ad]">See selected ideas →</button>
-                      <button onClick={() => openIsland("Compounding Systems")} className="rounded-full border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/82 hover:bg-white/10">Explore connections →</button>
+                      <button onClick={() => openIsland("Compounding Systems")} className="rounded-full border border-[#dce5e8] px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-white">Explore connections →</button>
                     </div>
                   </section>
                 ) : null}
@@ -2463,19 +2457,19 @@ export default function Page() {
                     className={`rounded-[24px] px-4 py-3 text-sm leading-relaxed ${
                       message.role === "user"
                         ? "ml-10 bg-[linear-gradient(135deg,#1b3a61,#274a77)] text-white"
-                        : "mr-10 border border-white/10 bg-[linear-gradient(180deg,rgba(14,27,46,0.84),rgba(9,18,32,0.92))] text-white"
+                        : "mr-10 border border-[#dce5e8] bg-white text-slate-900"
                     }`}
                   >
                     <p className="whitespace-pre-wrap">{message.content}</p>
                     {message.role === "assistant" && message.contexts && message.contexts.length > 0 ? (
-                      <div className="mt-3 rounded-[18px] border border-white/8 bg-white/6 px-3 py-2 text-xs text-white/58">
+                      <div className="mt-3 rounded-[18px] border border-[#dce5e8] bg-white px-3 py-2 text-xs text-slate-600">
                         Grounded memory: {message.contexts.join(" | ")}
                       </div>
                     ) : null}
                   </article>
                 ))}
                 {chatBusy ? (
-                  <div className="mr-10 inline-flex items-center gap-2 rounded-full border border-white/8 bg-white/6 px-4 py-2 text-xs text-white/62">
+                  <div className="mr-10 inline-flex items-center gap-2 rounded-full border border-[#dce5e8] bg-white px-4 py-2 text-xs text-slate-600">
                     <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
                     Thinking with selected memory...
                   </div>
@@ -2484,12 +2478,12 @@ export default function Page() {
             )}
           </div>
 
-          {activePanel === "chat" || activePanel === "builder" ? <div className="border-t border-white/8 bg-[linear-gradient(180deg,rgba(9,17,30,0.86),rgba(7,13,24,0.96))] px-5 py-4">
+          {activePanel === "chat" || activePanel === "builder" ? <div className="border-t border-[#dce5e8] bg-white px-5 py-4">
             {hint ? <p className="mb-3 text-xs text-teal">{hint}</p> : null}
-            <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,rgba(16,29,48,0.9),rgba(10,19,34,0.96))] p-4 shadow-[0_20px_44px_rgba(0,0,0,0.34)]">
+            <div className="rounded-[28px] border border-[#dce5e8] bg-white p-4 shadow-[0_20px_44px_rgba(0,0,0,0.34)]">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#7f9bc7]">
+                  <p className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#58787c]">
                     <Sparkles className="h-3.5 w-3.5" />
                     Add a source or ask a question
                   </p>
@@ -2497,16 +2491,16 @@ export default function Page() {
               </div>
 
               <div className="mt-3 flex flex-wrap items-center gap-2">
-                <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-xs font-semibold text-white/70">
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[#dce5e8] bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">
                   <ImagePlus className="h-3.5 w-3.5" />
                   Add image
                   <input type="file" accept="image/*" className="hidden" onChange={onFileSelect} />
                 </label>
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-xs font-semibold text-white/70">
+                <span className="inline-flex items-center gap-2 rounded-full border border-[#dce5e8] bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">
                   <Link2 className="h-3.5 w-3.5" />
                   {extractUrls(messageInput)[0] ? "External link detected" : "Link-ready"}
                 </span>
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/6 px-3 py-1.5 text-xs font-semibold text-white/70">
+                <span className="inline-flex items-center gap-2 rounded-full border border-[#dce5e8] bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">
                   <Paperclip className="h-3.5 w-3.5" />
                   {attachments.length} attachment{attachments.length === 1 ? "" : "s"}
                 </span>
@@ -2529,15 +2523,15 @@ export default function Page() {
               ) : null}
 
               <div className="mt-4 flex flex-wrap gap-2">
-                <div className="flex min-w-[220px] flex-1 items-end gap-2 rounded-[22px] border border-white/10 bg-[#0f1b30] px-3 py-2">
-                  <MessageSquare className="mb-2 h-4 w-4 shrink-0 text-white/42" />
+                <div className="flex min-w-[220px] flex-1 items-end gap-2 rounded-[22px] border border-[#dce5e8] bg-white px-3 py-2">
+                  <MessageSquare className="mb-2 h-4 w-4 shrink-0 text-slate-500" />
                   <textarea
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}
                     onPaste={onInputPaste}
                     rows={2}
                     placeholder="Paste a link or note to extract ideas, or ask about saved memory..."
-                    className="max-h-32 min-h-[52px] w-full resize-none bg-transparent text-sm text-white placeholder:text-white/28 focus:outline-none"
+                    className="max-h-32 min-h-[52px] w-full resize-none bg-transparent text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none"
                   />
                 </div>
                 <button
@@ -2570,23 +2564,22 @@ export default function Page() {
             onMouseDown={() => setDragPane("right")}
             className="relative h-full w-full cursor-col-resize"
           >
-            <span className="absolute left-1/2 top-1/2 h-24 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/10 transition group-hover:bg-[#6ba5ff]/60" />
+            <span className="absolute left-1/2 top-1/2 h-24 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white transition group-hover:bg-[#6ba5ff]/60" />
           </button>
         </div>
 
-        <aside className="workspace-islands flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-white/8 bg-[linear-gradient(180deg,rgba(8,14,25,0.88),rgba(7,12,20,0.98))] shadow-[0_24px_70px_rgba(0,0,0,0.34)]">
+        <aside className="workspace-islands flex h-full min-h-0 flex-col overflow-hidden rounded-[30px] border border-[#dce5e8] bg-white shadow-[0_24px_70px_rgba(0,0,0,0.34)]">
           <div className="night-scroll flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
             <div className="flex-none">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#8caee6]">Knowledge map</p>
-              <h3 className="mt-2 text-2xl text-white" style={{ fontFamily: "var(--font-heading)" }}>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#487881]">Knowledge map</p>
+              <h3 className="mt-2 text-2xl text-slate-900" title={insightCluster?.title} style={{ fontFamily: "var(--font-heading)" }}>
                 Explore connections
               </h3>
-              <p className="mt-2 text-sm text-white/64">Choose an island to open its related conversations and saved ideas.</p>
-              {insightCluster ? <p className="mt-1 text-xs text-white/42">{insightCluster.title}</p> : null}
+              <p className="mt-2 text-sm text-slate-600">Choose an island to open its related conversations and saved ideas.</p>
             </div>
 
-            <div className="relative min-h-[420px] flex-1 overflow-hidden rounded-[34px] bg-[radial-gradient(circle_at_20%_20%,rgba(57,83,118,0.38),transparent_30%),radial-gradient(circle_at_82%_18%,rgba(110,150,214,0.18),transparent_18%),radial-gradient(circle_at_65%_75%,rgba(42,83,148,0.2),transparent_20%),linear-gradient(180deg,rgba(5,10,20,0.98),rgba(10,17,31,0.98))]">
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(97,143,234,0.14),transparent_28%)]" />
+            <div className="relative min-h-[420px] flex-1 overflow-hidden rounded-[34px] bg-[#e7f1f0]">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(255,255,255,0.82),transparent_42%)]" />
               <div className="pointer-events-none absolute inset-0 overflow-hidden">
                 <span className="star-streak left-[6%] top-[16%]" style={{ animationDelay: "0.2s", animationDuration: "7.4s" }} />
                 <span className="star-streak left-[26%] top-[8%]" style={{ animationDelay: "2.1s", animationDuration: "8.2s" }} />
@@ -2604,7 +2597,7 @@ export default function Page() {
                 onClick={() => openIsland(canvasLabels[0] ?? "Main Island")}
                 aria-label={`Explore ${canvasLabels[0] ?? "Main Island"} knowledge`}
                 aria-pressed={activePanel === "island" && selectedIsland.id === presetMainIsland.id}
-                className="island-pulse island-mass absolute left-[23%] top-[38%] z-10 h-52 w-56 overflow-hidden border border-[#85b5ff]/20 text-white shadow-[0_0_70px_rgba(87,140,255,0.18)] transition hover:scale-[1.02]"
+                className="island-pulse island-mass absolute left-[23%] top-[38%] z-10 h-52 w-56 overflow-hidden border border-[#85b5ff]/20 text-slate-900 shadow-[0_0_70px_rgba(87,140,255,0.18)] transition hover:scale-[1.02]"
                 style={{ borderRadius: "44% 56% 52% 48% / 46% 44% 56% 54%" }}
               >
                 <span className="island-shore absolute inset-[10px]" style={{ borderRadius: "43% 57% 51% 49% / 45% 43% 57% 55%" }} />
@@ -2631,7 +2624,7 @@ export default function Page() {
                 return (
                   <button
                     key={label}
-                    className="floating-node island-mass absolute z-10 h-20 w-32 overflow-hidden border border-[#85b5ff]/14 px-4 py-2 text-xs text-white/82 shadow-[0_0_28px_rgba(104,145,255,0.14)] transition hover:scale-[1.02]"
+                    className="floating-node island-mass absolute z-10 h-20 w-32 overflow-hidden border border-[#85b5ff]/14 px-4 py-2 text-xs text-slate-700 shadow-[0_0_28px_rgba(104,145,255,0.14)] transition hover:scale-[1.02]"
                     style={{ ...position, borderRadius: radii[index] }}
                     onClick={() => openIsland(label)}
                     aria-label={`Explore ${label} knowledge`}
@@ -2647,20 +2640,13 @@ export default function Page() {
               })}
             </div>
 
-            <div className="grid flex-none gap-3">
-              <section className="rounded-[24px] bg-white/6 p-4">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50">Hidden commonality</p>
-                <p className="mt-2 text-lg leading-snug text-white">{todayIntention}</p>
-                <p className="mt-3 text-sm leading-relaxed text-white/68">{hiddenCommonality}</p>
-              </section>
-
-              <section className="rounded-[24px] bg-white/8 px-4 py-4 text-white/80">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.2em]">Recent important discoveries</p>
-                <div className="mt-3 space-y-2 text-sm">
-                  {insightHighlights.length ? insightHighlights.map((item) => <p key={item}>{item}</p>) : <p>Waiting for today&apos;s memory signals.</p>}
-                </div>
-              </section>
-            </div>
+            <section className="flex-none rounded-[22px] border border-[#dce5e8] bg-white p-4">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#487881]">Current connection</p>
+              <p className="mt-2 text-base leading-snug text-slate-900">Finance, business, and AI share a review loop.</p>
+              <button onClick={() => openIsland(presetMainIsland.label)} className="mt-3 text-sm font-semibold text-[#246b70] hover:underline">
+                Explore this topic →
+              </button>
+            </section>
           </div>
         </aside></> : null}
       </div>
