@@ -131,8 +131,8 @@ export default function Home() {
           <div className={styles.eyebrow}><span className={styles.eyebrowDot} /> A knowledge base shaped by you</div>
           <h1 id="hero-title">Ideas are better<br />when they<br /><em>connect.</em></h1>
           <p className={styles.heroDescription}>
-            Online information is noisy. Choose the expert interviews, podcast perspectives, and research you value.
-            Inspiration turns the ideas you keep into a personal knowledge base that grounds AI answers.
+            The information you trust is often scattered across expert interviews, podcasts, papers, and research.
+            Inspiration turns the sources you choose into a personal knowledge base, continuously connecting related ideas and surfacing new insights as your knowledge grows.
           </p>
           <div className={styles.heroActions}>
             <Link className={styles.primaryButton} href="/workspace">Explore the workspace <ArrowUpRight size={18} /></Link>
