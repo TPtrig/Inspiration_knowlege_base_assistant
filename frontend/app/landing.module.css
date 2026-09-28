@@ -14,24 +14,19 @@
 }
 
 .page > :not(.depthBackground) { position: relative; z-index: 1; }
-.depthBackground { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; perspective: 960px; perspective-origin: 54% 35%; background: radial-gradient(ellipse at 78% 8%, rgba(158, 211, 192, .3), transparent 38%), radial-gradient(ellipse at 10% 78%, rgba(156, 203, 198, .22), transparent 42%), linear-gradient(135deg, #f7f5eb 10%, #eff5eb 54%, #f7f2e7 100%); }
-.depthPlane { position: absolute; aspect-ratio: 4 / 3; transform-style: preserve-3d; transition: transform .35s ease-out; }
-.depthPlane svg { display: block; width: 100%; height: 100%; animation: tideDrift 14s ease-in-out infinite alternate; }
-.depthPlaneFar { top: -37vh; right: -27vw; width: min(1150px, 96vw); color: #4d9b91; opacity: .33; filter: blur(.7px); transform: translate3d(var(--far-x, 0px), var(--far-y, 0px), -180px) rotateX(57deg) rotateZ(-13deg); }
-.depthPlaneMiddle { top: 43vh; left: -39vw; width: min(950px, 74vw); color: #4e9da0; opacity: .25; filter: blur(.35px); transform: translate3d(var(--middle-x, 0px), var(--middle-y, 0px), -50px) rotateX(63deg) rotateZ(18deg); }
-.depthPlaneMiddle svg { animation-duration: 17s; animation-direction: alternate-reverse; }
-.depthPlaneNear { right: -30vw; bottom: -67vh; width: min(1080px, 88vw); color: #478d83; opacity: .3; transform: translate3d(var(--near-x, 0px), var(--near-y, 0px), 105px) rotateX(69deg) rotateZ(-22deg); }
-.depthPlaneNear svg { animation-duration: 11s; }
-.depthLight { position: absolute; inset: -20%; opacity: .38; background: radial-gradient(ellipse at 28% 21%, rgba(255, 253, 231, .92), transparent 23%), radial-gradient(ellipse at 75% 67%, rgba(208, 237, 219, .5), transparent 29%); animation: tideLight 18s ease-in-out infinite alternate; }
+.depthBackground { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; background: radial-gradient(ellipse at 72% 12%, rgba(137, 203, 181, .3), transparent 43%), radial-gradient(ellipse at 86% 80%, rgba(117, 188, 183, .22), transparent 46%), linear-gradient(140deg, #f8f6ed 8%, #edf3e8 62%, #f6f2e6 100%); }
+.depthHorizon { position: absolute; width: 85vw; height: 68vh; right: -18vw; top: -19vh; border-radius: 50%; background: radial-gradient(ellipse, rgba(101, 184, 171, .26), rgba(187, 228, 205, .12) 46%, transparent 72%); filter: blur(28px); animation: horizonBreath 9s ease-in-out infinite alternate; }
+.depthCanvas { position: absolute; inset: 0; display: block; width: 100%; height: 100%; opacity: .95; -webkit-mask-image: linear-gradient(90deg, transparent 1%, transparent 35%, rgba(0, 0, 0, .32) 54%, #000 78%); mask-image: linear-gradient(90deg, transparent 1%, transparent 35%, rgba(0, 0, 0, .32) 54%, #000 78%); }
+.depthShimmer { position: absolute; inset: -30%; opacity: .38; background: linear-gradient(112deg, transparent 34%, rgba(255, 253, 226, .7) 48%, transparent 62%); mix-blend-mode: screen; animation: horizonShimmer 8s ease-in-out infinite alternate; }
 
-@keyframes tideDrift {
-  from { transform: translate3d(0, -12px, 0); }
-  to { transform: translate3d(0, 13px, 0); }
+@keyframes horizonBreath {
+  from { transform: translate3d(-3%, 2%, 0) scale(.96); opacity: .72; }
+  to { transform: translate3d(4%, -3%, 0) scale(1.08); opacity: 1; }
 }
 
-@keyframes tideLight {
-  from { transform: translate3d(-2%, 1%, 0); }
-  to { transform: translate3d(3%, -2%, 0); }
+@keyframes horizonShimmer {
+  from { transform: translate3d(-12%, 0, 0); }
+  to { transform: translate3d(12%, 0, 0); }
 }
 
 .page a { text-decoration: none; }
@@ -66,6 +61,7 @@
 .heroFootnote svg { color: #278b7d; }
 
 .heroVisual { min-width: 0; padding: 22px 0 36px; }
+.heroVisual::before { content: ""; position: absolute; z-index: 0; width: 98%; aspect-ratio: 1.8; left: 5%; top: 11%; border: 2px solid rgba(69, 174, 159, .42); border-radius: 50%; box-shadow: 0 0 0 18px rgba(128, 205, 180, .09), 0 0 46px rgba(91, 190, 167, .15); transform: rotateX(66deg) scale(.25); opacity: 0; pointer-events: none; animation: insightTide 6.8s ease-out infinite; }
 .visualOrbit { position: absolute; inset: -25px -22px 15px 40px; border: 1px dashed #acc8b7; border-radius: 46% 54% 51% 49%; transform: rotate(-8deg); }
 .insightVisual, .largeMapFrame { position: relative; overflow: hidden; border: 1px solid #d9e1d5; border-radius: 22px; background: #fffefa; box-shadow: 0 30px 90px rgba(27, 64, 57, .13), 0 3px 10px rgba(27, 64, 57, .04); }
 .insightVisual { aspect-ratio: 800 / 510; transform: rotate(2deg); isolation: isolate; }
@@ -118,6 +114,13 @@
   0%, 44% { opacity: 0; translate: 0 12px; }
   54%, 82% { opacity: 1; translate: 0 0; }
   91%, 100% { opacity: 0; translate: 0 -5px; }
+}
+
+@keyframes insightTide {
+  0%, 41% { opacity: 0; transform: rotateX(66deg) scale(.25); }
+  46% { opacity: .8; }
+  78% { opacity: 0; transform: rotateX(66deg) scale(2.25); }
+  100% { opacity: 0; transform: rotateX(66deg) scale(2.25); }
 }
 
 .largeMapTop { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 39px; padding: 0 5px 12px; color: #2d5149; font-size: 13px; font-weight: 750; }
@@ -249,8 +252,8 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .depthPlane { transition: none; }
-  .depthPlane svg, .depthLight { animation: none; }
+  .depthHorizon, .depthShimmer { animation: none; }
+  .heroVisual::before { animation: none; opacity: 0; }
   .tealMeteor, .coralMeteor { animation: none; opacity: 0; }
   .insightGlow, .insightRing, .insightBurst, .insightCaption { animation: none; opacity: 1; transform: none; }
   .insightGlow { opacity: .55; }
