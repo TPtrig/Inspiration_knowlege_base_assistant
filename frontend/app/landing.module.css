@@ -57,8 +57,6 @@
 .primaryButton { min-height: 54px; display: inline-flex; align-items: center; justify-content: center; gap: 13px; padding: 0 24px; border-radius: 999px; background: var(--ink); color: #fff; font-size: 14px; font-weight: 700; white-space: nowrap; transition: transform .2s ease, background .2s ease; }
 .textButton { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); font-size: 14px; font-weight: 700; white-space: nowrap; }
 .textButton:hover, .inlineLink:hover { color: #0b8b80; }
-.heroFootnote { display: flex; align-items: center; gap: 8px; margin: 22px 0 0; color: #718077; font-size: 12px; }
-.heroFootnote svg { color: #278b7d; }
 
 .heroVisual { min-width: 0; padding: 22px 0 36px; }
 .heroVisual::before { content: ""; position: absolute; z-index: 0; width: 98%; aspect-ratio: 1.8; left: 5%; top: 11%; border: 2px solid rgba(69, 174, 159, .42); border-radius: 50%; box-shadow: 0 0 0 18px rgba(128, 205, 180, .09), 0 0 46px rgba(91, 190, 167, .15); transform: rotateX(66deg) scale(.25); opacity: 0; pointer-events: none; animation: insightTide 6.8s ease-out infinite; }

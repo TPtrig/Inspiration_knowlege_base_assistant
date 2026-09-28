@@ -7,7 +7,7 @@ import styles from "./landing.module.css";
 export const metadata: Metadata = {
   title: "Inspiration — Ideas worth keeping, connections worth finding",
   description:
-    "Capture ideas from across your sources, choose what becomes memory, ask grounded questions, and discover how your knowledge connects."
+    "Choose the sources you value, build a personal knowledge base from the ideas you keep, and get AI answers grounded in your selections."
 };
 
 const mapTopics = [
@@ -128,17 +128,16 @@ export default function Home() {
 
       <section className={styles.hero} aria-labelledby="hero-title">
         <div className={styles.heroCopy}>
-          <div className={styles.eyebrow}><span className={styles.eyebrowDot} /> A living map of what you know</div>
+          <div className={styles.eyebrow}><span className={styles.eyebrowDot} /> A knowledge base shaped by you</div>
           <h1 id="hero-title">Ideas are better<br />when they<br /><em>connect.</em></h1>
           <p className={styles.heroDescription}>
-            Your best ideas are scattered across podcasts, videos, notes, and images.
-            Inspiration helps you keep what matters, ask better questions, and see the links between them.
+            Online information is noisy. Choose the expert interviews, podcast perspectives, and research you value.
+            Inspiration turns the ideas you keep into a personal knowledge base that grounds AI answers.
           </p>
           <div className={styles.heroActions}>
             <Link className={styles.primaryButton} href="/workspace">Explore the workspace <ArrowUpRight size={18} /></Link>
             <a className={styles.textButton} href="#how-it-works">See how it works <ArrowRight size={17} /></a>
           </div>
-          <p className={styles.heroFootnote}><Check size={15} /> Explore with sample content. No setup needed.</p>
         </div>
         <div className={styles.heroVisual}>
           <div className={styles.visualOrbit} aria-hidden="true" />
@@ -147,27 +146,27 @@ export default function Home() {
       </section>
 
       <section className={styles.valueStrip} aria-label="Product highlights">
-        <div><span className={styles.stripIcon}><Layers3 size={19} /></span><p>Many sources.<br /><strong>One place to think.</strong></p></div>
-        <div><span className={styles.stripIcon}><Check size={19} /></span><p>Your judgment.<br /><strong>Only useful memory.</strong></p></div>
-        <div><span className={styles.stripIcon}><Sparkles size={19} /></span><p>Connected ideas.<br /><strong>More to discover.</strong></p></div>
+        <div><span className={styles.stripIcon}><Layers3 size={19} /></span><p>Choose your sources.<br /><strong>Keep what matters.</strong></p></div>
+        <div><span className={styles.stripIcon}><Check size={19} /></span><p>Your judgment.<br /><strong>Your knowledge base.</strong></p></div>
+        <div><span className={styles.stripIcon}><Sparkles size={19} /></span><p>Grounded answers.<br /><strong>New connections.</strong></p></div>
       </section>
 
       <section id="how-it-works" className={styles.processSection} aria-labelledby="process-title">
         <div className={styles.sectionHeading}>
           <div><span className={styles.sectionKicker}>THE PRODUCT LOOP</span><h2 id="process-title">From passing thought<br />to lasting insight.</h2></div>
-          <p>Inspiration gives every idea a simple path: capture it, decide whether to keep it, then put it to work.</p>
+          <p>Choose where ideas come from, select what is worth keeping, and ask from your own knowledge base.</p>
         </div>
         <div className={styles.processGrid}>
           <article className={styles.processCard}>
             <span className={styles.stepNumber}>01 / CAPTURE</span>
             <div className={styles.captureIllustration} aria-hidden="true">
               <div className={styles.sourceRow}><span className={styles.sourceDot} /> Podcast <span>↗</span></div>
-              <div className={styles.sourceRow}><span className={styles.sourceDot} /> Video link <span>↗</span></div>
-              <div className={styles.sourceRow}><span className={styles.sourceDot} /> A note or image <span>↗</span></div>
+              <div className={styles.sourceRow}><span className={styles.sourceDot} /> Expert interview <span>↗</span></div>
+              <div className={styles.sourceRow}><span className={styles.sourceDot} /> Paper notes <span>↗</span></div>
               <span className={styles.captureSpark}><Sparkles size={20} /></span>
             </div>
-            <h3>Bring the fragments in.</h3>
-            <p>Start with a link, a thought, or an image. Get draft ideas without building a filing system first.</p>
+            <h3>Start with sources you value.</h3>
+            <p>Capture a podcast, an industry interview, or notes from a paper you care about.</p>
           </article>
           <article className={styles.processCard}>
             <span className={styles.stepNumber}>02 / CURATE</span>
@@ -178,7 +177,7 @@ export default function Home() {
               <div className={styles.curateRow}><span className={styles.checkedBox}><Check size={13} /></span> Review decisions at clear checkpoints.</div>
             </div>
             <h3>Choose what becomes memory.</h3>
-            <p>Review the draft. Keep the signal. Your selected ideas become the material for future answers.</p>
+            <p>Review draft takeaways. Your selections become the material AI draws on for future answers.</p>
           </article>
           <article className={styles.processCard}>
             <span className={styles.stepNumber}>03 / EXPLORE</span>
@@ -187,7 +186,7 @@ export default function Home() {
               <div className={styles.answerBubble}><MessageCircle size={16} /> Start with retrieval quality and visible checkpoints.<small>Based on 2 saved ideas ↗</small></div>
             </div>
             <h3>Ask, then find new links.</h3>
-            <p>Get answers grounded in what you saved. The map reveals related topics; Agent Inbox brings useful links back to you.</p>
+            <p>Answers draw on your saved ideas. The map reveals connections across the topics and sources you follow.</p>
           </article>
         </div>
       </section>
@@ -197,7 +196,7 @@ export default function Home() {
           <div className={styles.connectionsCopy}>
             <span className={styles.sectionKicker}>THE INSPIRATION DIFFERENCE</span>
             <h2 id="connections-title">A knowledge base<br />with a <em>point of view.</em></h2>
-            <p>Each island is a topic formed from ideas you chose to save. The paths between islands show how closely topics relate, so a connection can become a conversation instead of another forgotten bookmark.</p>
+            <p>The ideas you select become your own reference library. Each island gathers a topic; the paths show where ideas from different sources connect.</p>
             <div className={styles.connectionExample}><span className={styles.exampleIcon}><Sparkles size={18} /></span><div><strong>One concrete example</strong><p>AI infrastructure and LLM models share a strong link. Finance and AI infrastructure have a weaker one. Open a topic to see its chats and saved ideas.</p></div></div>
             <Link className={styles.inlineLink} href="/workspace">Explore the example map <ArrowUpRight size={17} /></Link>
           </div>
