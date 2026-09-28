@@ -3,7 +3,7 @@
 **Turn scattered content into ideas you can use again.**
 Add podcasts, videos, images, or notes. Choose the ideas worth keeping, then ask questions grounded in your saved memory and discover connections across sources.
 
-[Try the example workspace](https://pod-brain-teal.vercel.app/) to follow a complete source → selected ideas → grounded answer flow. The public Demo Mode uses sample content and simulated AI behavior; Live Mode runs with the local backend.
+The product page lives at `/`, and the [example workspace](https://pod-brain-teal.vercel.app/) is available locally at `/workspace`. The public Demo Mode uses sample content and simulated AI behavior; Live Mode runs with the local backend.
 
 ## Product Summary
 
@@ -147,7 +147,7 @@ Run frontend:
 npm run dev
 ```
 
-Open: [http://127.0.0.1:3000](http://127.0.0.1:3000)
+Open the product page at [http://127.0.0.1:3000](http://127.0.0.1:3000), or go directly to the [workspace](http://127.0.0.1:3000/workspace).
 
 ## Portfolio Context
 

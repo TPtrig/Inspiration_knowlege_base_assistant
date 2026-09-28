@@ -1,4 +1,4 @@
-# Desktop workspace and future product page
+# Desktop workspace and product page
 
 ## Workspace rule
 
@@ -13,6 +13,6 @@ Keep the workspace focused on actions and saved material: Chat, Memory, Inbox, a
 
 For Live Mode, the next data step is topic extraction from saved ideas, semantic relationship scoring between topics, and a short citation to the saved ideas that support each line. A weak link should remain visibly weak or be omitted when the evidence is insufficient.
 
-## Future product page content
+## Product page content
 
-The standalone product page can explain the value proposition, input types, curation loop, grounded answers, and cross-domain discovery with one concrete example. Keep its narrative outside the workspace so the application can stay concise. This document is a content brief; it does not add a product page now.
+The standalone product page at `/` explains the value proposition, input types, curation loop, grounded answers, and cross-domain discovery with one concrete example. The application remains at `/workspace` so the product narrative stays outside the working interface.
