@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Check, Compass, Layers3, MessageCircle, Sparkles, Waves } from "lucide-react";
+import CoastalDepthBackground from "./coastal-depth-background";
 import styles from "./landing.module.css";
 
 export const metadata: Metadata = {
@@ -110,6 +111,7 @@ function InsightMeteorVisual() {
 export default function Home() {
   return (
     <main className={styles.page}>
+      <CoastalDepthBackground />
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <Link className={styles.brand} href="/" aria-label="Inspiration home">
