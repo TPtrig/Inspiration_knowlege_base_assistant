@@ -32,6 +32,81 @@ function IslandMap({ compact = false }: { compact?: boolean }) {
   );
 }
 
+function InsightMeteorVisual() {
+  return (
+    <div className={styles.insightVisual} role="img" aria-label="Two meteors meet, making a small firework that reveals a new insight">
+      <svg viewBox="0 0 800 510" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+        <defs>
+          <linearGradient id="insight-sky" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#e2f2e9" />
+            <stop offset="58%" stopColor="#f6f4e8" />
+            <stop offset="100%" stopColor="#f4e4d6" />
+          </linearGradient>
+          <linearGradient id="teal-trail" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#53a99b" stopOpacity="0" />
+            <stop offset="65%" stopColor="#39a999" stopOpacity=".55" />
+            <stop offset="100%" stopColor="#0e827d" />
+          </linearGradient>
+          <linearGradient id="coral-trail" x1="1" y1="1" x2="0" y2="0">
+            <stop offset="0%" stopColor="#ed9d77" stopOpacity="0" />
+            <stop offset="70%" stopColor="#eea57e" stopOpacity=".65" />
+            <stop offset="100%" stopColor="#d8795b" />
+          </linearGradient>
+          <radialGradient id="insight-glow">
+            <stop offset="0%" stopColor="#fff3ba" stopOpacity=".95" />
+            <stop offset="38%" stopColor="#f9e7b3" stopOpacity=".6" />
+            <stop offset="100%" stopColor="#f9e7b3" stopOpacity="0" />
+          </radialGradient>
+          <filter id="meteor-glow" x="-200%" y="-200%" width="500%" height="500%">
+            <feGaussianBlur stdDeviation="7" />
+          </filter>
+        </defs>
+
+        <rect width="800" height="510" fill="url(#insight-sky)" />
+        <circle cx="405" cy="248" r="232" fill="none" stroke="#b5d9c9" strokeOpacity=".5" />
+        <circle cx="405" cy="248" r="177" fill="none" stroke="#f1d4bd" strokeOpacity=".52" />
+        <path d="M49 318 C178 290 258 329 366 277" fill="none" stroke="#8cbbac" strokeOpacity=".28" strokeWidth="1.5" />
+        <path d="M771 151 C635 185 562 165 434 236" fill="none" stroke="#e8bfa2" strokeOpacity=".32" strokeWidth="1.5" />
+        <g fill="#78b7a5" opacity=".55">
+          <circle cx="105" cy="91" r="2.5" /><circle cx="201" cy="385" r="2" />
+          <circle cx="664" cy="95" r="2" /><circle cx="712" cy="351" r="3" />
+        </g>
+        <g fill="#e5aa86" opacity=".7">
+          <circle cx="178" cy="170" r="2" /><circle cx="597" cy="417" r="2.5" />
+          <circle cx="724" cy="203" r="1.8" />
+        </g>
+
+        <g className={styles.tealMeteor}>
+          <path d="M192 120 C268 156 327 214 400 250" fill="none" stroke="url(#teal-trail)" strokeWidth="24" strokeLinecap="round" opacity=".17" />
+          <path d="M192 120 C268 156 327 214 400 250" fill="none" stroke="url(#teal-trail)" strokeWidth="5" strokeLinecap="round" />
+          <circle cx="400" cy="250" r="22" fill="#34aa9b" opacity=".5" filter="url(#meteor-glow)" />
+          <circle cx="400" cy="250" r="8" fill="#f7fff5" />
+          <circle cx="400" cy="250" r="4" fill="#0d8a81" />
+        </g>
+        <g className={styles.coralMeteor}>
+          <path d="M612 388 C533 350 478 284 400 250" fill="none" stroke="url(#coral-trail)" strokeWidth="24" strokeLinecap="round" opacity=".18" />
+          <path d="M612 388 C533 350 478 284 400 250" fill="none" stroke="url(#coral-trail)" strokeWidth="5" strokeLinecap="round" />
+          <circle cx="400" cy="250" r="22" fill="#e69870" opacity=".48" filter="url(#meteor-glow)" />
+          <circle cx="400" cy="250" r="8" fill="#fff8e9" />
+          <circle cx="400" cy="250" r="4" fill="#de8063" />
+        </g>
+
+        <circle className={styles.insightGlow} cx="400" cy="250" r="112" fill="url(#insight-glow)" />
+        <circle className={styles.insightRing} cx="400" cy="250" r="39" fill="none" stroke="#f6c692" strokeWidth="2" />
+        <g className={styles.insightBurst} strokeLinecap="round" fill="none">
+          <path d="M400 174v23 M400 303v23 M324 250h23 M453 250h23" stroke="#d78d68" strokeWidth="4" />
+          <path d="M346 196l17 17 M437 287l17 17 M346 304l17-17 M437 213l17-17" stroke="#329b8c" strokeWidth="3.5" />
+          <path d="M372 179l8 22 M420 299l8 22 M329 222l21 8 M450 270l21 8 M330 280l21-8 M449 230l21-8" stroke="#e4b45f" strokeWidth="2.5" />
+          <circle cx="400" cy="250" r="9" fill="#fff9db" stroke="#dfa86a" strokeWidth="2" />
+          <circle cx="375" cy="224" r="3" fill="#f1ba74" /><circle cx="429" cy="232" r="3" fill="#58af9d" />
+          <circle cx="382" cy="281" r="2.5" fill="#e79e78" /><circle cx="424" cy="274" r="2.5" fill="#e8b975" />
+        </g>
+      </svg>
+      <span className={styles.insightCaption}>New insight<span aria-hidden="true">✦</span></span>
+    </div>
+  );
+}
+
 export default function Home() {
   return (
     <main className={styles.page}>
@@ -65,20 +140,7 @@ export default function Home() {
         </div>
         <div className={styles.heroVisual}>
           <div className={styles.visualOrbit} aria-hidden="true" />
-          <div className={styles.previewWindow}>
-            <div className={styles.previewTopbar}>
-              <span className={styles.previewMark}><Compass size={17} /> Knowledge landscape</span>
-              <span className={styles.previewPill}>EXAMPLE MAP</span>
-            </div>
-            <IslandMap />
-            <div className={styles.previewFooter}>
-              <span><i className={styles.strongKey} /> Strong</span>
-              <span><i className={styles.relatedKey} /> Related</span>
-              <span><i className={styles.weakKey} /> Weak</span>
-              <span className={styles.previewHint}>Topics from saved ideas</span>
-            </div>
-          </div>
-          <div className={styles.floatingNote}><span>NEW CONNECTION</span><strong>AI Infrastructure ↔ LLM Models</strong><small>See why these ideas belong together <ArrowUpRight size={12} /></small></div>
+          <InsightMeteorVisual />
         </div>
       </section>
 

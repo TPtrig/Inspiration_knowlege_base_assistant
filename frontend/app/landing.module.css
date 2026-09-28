@@ -44,12 +44,62 @@
 
 .heroVisual { min-width: 0; padding: 22px 0 36px; }
 .visualOrbit { position: absolute; inset: -25px -22px 15px 40px; border: 1px dashed #acc8b7; border-radius: 46% 54% 51% 49%; transform: rotate(-8deg); }
-.previewWindow, .largeMapFrame { position: relative; overflow: hidden; border: 1px solid #d9e1d5; border-radius: 22px; background: #fffefa; box-shadow: 0 30px 90px rgba(27, 64, 57, .13), 0 3px 10px rgba(27, 64, 57, .04); }
-.previewWindow { padding: 15px; transform: rotate(2deg); }
-.previewTopbar, .largeMapTop { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 39px; padding: 0 5px 12px; color: #2d5149; font-size: 13px; font-weight: 750; }
-.previewMark, .largeMapTop > span:first-child { display: inline-flex; align-items: center; gap: 8px; }
-.previewMark svg, .largeMapTop svg { color: #168178; }
-.previewPill { border-radius: 999px; padding: 5px 8px; background: #ebf0e7; color: #647b6e; font-size: 9px; letter-spacing: .08em; }
+.insightVisual, .largeMapFrame { position: relative; overflow: hidden; border: 1px solid #d9e1d5; border-radius: 22px; background: #fffefa; box-shadow: 0 30px 90px rgba(27, 64, 57, .13), 0 3px 10px rgba(27, 64, 57, .04); }
+.insightVisual { aspect-ratio: 800 / 510; transform: rotate(2deg); isolation: isolate; }
+.insightVisual > svg { display: block; width: 100%; height: 100%; }
+.tealMeteor, .coralMeteor, .insightGlow, .insightRing, .insightBurst { will-change: transform, opacity; }
+.tealMeteor { animation: tealMeteor 6.8s ease-in infinite; }
+.coralMeteor { animation: coralMeteor 6.8s ease-in infinite; }
+.insightGlow { animation: insightGlow 6.8s ease-out infinite; transform-origin: 400px 250px; }
+.insightRing { animation: insightRing 6.8s ease-out infinite; transform-origin: 400px 250px; }
+.insightBurst { animation: insightBurst 6.8s ease-out infinite; transform-origin: 400px 250px; }
+.insightCaption { position: absolute; top: 68%; left: 50%; display: inline-flex; align-items: center; gap: 8px; transform: translateX(-50%); color: #275b50; font-family: var(--font-heading), sans-serif; font-size: clamp(20px, 2.1vw, 29px); font-weight: 700; letter-spacing: -.05em; white-space: nowrap; animation: insightCaption 6.8s ease-out infinite; }
+.insightCaption span { color: #d9956d; font-family: Georgia, serif; font-size: .7em; }
+
+@keyframes tealMeteor {
+  0%, 5% { opacity: 0; transform: translate(-295px, -175px); }
+  12% { opacity: 1; }
+  41% { opacity: 1; transform: translate(0, 0); }
+  44%, 100% { opacity: 0; transform: translate(0, 0); }
+}
+
+@keyframes coralMeteor {
+  0%, 9% { opacity: 0; transform: translate(295px, 155px); }
+  15% { opacity: 1; }
+  41% { opacity: 1; transform: translate(0, 0); }
+  44%, 100% { opacity: 0; transform: translate(0, 0); }
+}
+
+@keyframes insightGlow {
+  0%, 39% { opacity: 0; transform: scale(.25); }
+  47% { opacity: 1; transform: scale(1); }
+  68% { opacity: .6; transform: scale(1.2); }
+  87%, 100% { opacity: 0; transform: scale(1.35); }
+}
+
+@keyframes insightRing {
+  0%, 40% { opacity: 0; transform: scale(.2); }
+  43% { opacity: .95; }
+  68% { opacity: 0; transform: scale(3); }
+  100% { opacity: 0; transform: scale(3); }
+}
+
+@keyframes insightBurst {
+  0%, 40% { opacity: 0; transform: scale(.18) rotate(-25deg); }
+  47% { opacity: 1; transform: scale(1.08) rotate(4deg); }
+  62% { opacity: .9; transform: scale(1) rotate(0); }
+  86%, 100% { opacity: 0; transform: scale(.85) rotate(0); }
+}
+
+@keyframes insightCaption {
+  0%, 44% { opacity: 0; translate: 0 12px; }
+  54%, 82% { opacity: 1; translate: 0 0; }
+  91%, 100% { opacity: 0; translate: 0 -5px; }
+}
+
+.largeMapTop { display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 39px; padding: 0 5px 12px; color: #2d5149; font-size: 13px; font-weight: 750; }
+.largeMapTop > span:first-child { display: inline-flex; align-items: center; gap: 8px; }
+.largeMapTop svg { color: #168178; }
 .islandMap { position: relative; width: 100%; aspect-ratio: 1586 / 992; overflow: hidden; border-radius: 14px; background: #075b78 url('/images/knowledge-archipelago.png') center / cover no-repeat; }
 .mapLines { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .mapLines path { fill: none; stroke-linecap: round; }
@@ -61,17 +111,12 @@
 .operations { top: 23%; left: 73%; width: 27%; }
 .infrastructure { top: 68%; left: 28%; width: 28%; }
 .models { top: 74%; left: 76%; width: 20%; }
-.previewFooter, .largeMapBottom { display: flex; align-items: center; gap: 22px; padding: 14px 7px 2px; color: #60776c; font-size: 11px; }
-.previewFooter span, .largeMapBottom span { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
-.previewFooter i, .largeMapBottom i { width: 18px; height: 0; border-top: 2px solid; }
-.previewFooter .strongKey, .largeMapBottom .strongKey { border-color: #218b79; border-width: 3px; }
-.previewFooter .relatedKey, .largeMapBottom .relatedKey { border-color: #97b5a7; }
-.previewFooter .weakKey, .largeMapBottom .weakKey { border-color: #b4c6b6; border-style: dashed; }
-.previewHint { margin-left: auto; }
-.floatingNote { position: absolute; right: -22px; bottom: -10px; display: flex; flex-direction: column; gap: 7px; width: 258px; padding: 17px 20px; border: 1px solid #d8e2d4; border-radius: 16px; background: #fffefa; box-shadow: 0 16px 40px rgba(23, 63, 53, .15); transform: rotate(-2deg); }
-.floatingNote > span { color: #398579; font-size: 9px; font-weight: 800; letter-spacing: .16em; }
-.floatingNote strong { font-size: 13px; }
-.floatingNote small { display: inline-flex; align-items: center; gap: 5px; color: #6e7b70; font-size: 10px; }
+.largeMapBottom { display: flex; align-items: center; gap: 22px; padding: 14px 7px 2px; color: #60776c; font-size: 11px; }
+.largeMapBottom span { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.largeMapBottom i { width: 18px; height: 0; border-top: 2px solid; }
+.largeMapBottom .strongKey { border-color: #218b79; border-width: 3px; }
+.largeMapBottom .relatedKey { border-color: #97b5a7; }
+.largeMapBottom .weakKey { border-color: #b4c6b6; border-style: dashed; }
 
 .valueStrip { display: grid; grid-template-columns: repeat(3, 1fr); max-width: 1224px; margin: 0 auto 90px; border-top: 1px solid #d8e0d4; border-bottom: 1px solid #d8e0d4; }
 .valueStrip > div { display: flex; align-items: center; gap: 16px; min-height: 95px; padding: 14px 25px; }
@@ -161,9 +206,6 @@
   .heroDescription { font-size: 16px; }
   .heroActions { flex-wrap: wrap; gap: 18px; }
   .heroVisual { padding-bottom: 12px; }
-  .floatingNote { display: none; }
-  .previewFooter { gap: 11px; font-size: 9px; }
-  .previewHint { display: none !important; }
   .mapTopic, .compactMap .mapTopic { font-size: clamp(9px, 2.1vw, 12px); }
   .valueStrip { grid-template-columns: 1fr; margin: 0 21px 70px; }
   .valueStrip > div { min-height: 70px; padding: 12px; }
@@ -181,4 +223,12 @@
   .closingIsland { opacity: .35; }
   .footer { padding: 25px 21px; flex-wrap: wrap; }
   .footer > span { order: 3; width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tealMeteor, .coralMeteor { animation: none; opacity: 0; }
+  .insightGlow, .insightRing, .insightBurst, .insightCaption { animation: none; opacity: 1; transform: none; }
+  .insightGlow { opacity: .55; }
+  .insightRing { opacity: .45; }
+  .insightCaption { transform: translateX(-50%); }
 }
