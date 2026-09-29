@@ -1,15 +1,15 @@
 # Inspiration
 
-**Turn scattered content into ideas you can use again.**
-Add podcasts, videos, images, or notes. Choose the ideas worth keeping, then ask questions grounded in your saved memory and discover connections across sources.
+**Build a knowledge base from the sources you choose.**
+Keep useful ideas from podcasts, practitioner interviews, research links, and your own notes. Ask from the material you saved and discover where ideas connect. The public workspace demonstrates the full concept; the real backend is being completed in stages.
 
-The product page lives at `/`, and the [example workspace](https://pod-brain-teal.vercel.app/) is available locally at `/workspace`. The public Demo Mode uses sample content and simulated AI behavior; Live Mode runs with the local backend.
+The product page lives at /, and the example workspace is at /workspace. Demo Mode uses sample content and simulated AI behavior; Live Mode runs with the local backend.
 
 ## Product Summary
 
 `Inspiration` is the 2.0 evolution of `PodBrain`.
 
-The product expands from podcast-first memory capture into an omni-channel knowledge agent for:
+The product direction expands from podcast-first memory capture toward:
 
 - podcasts
 - long-form video
@@ -17,7 +17,7 @@ The product expands from podcast-first memory capture into an omni-channel knowl
 - image-based fragments
 - agent-driven synthesis workflows
 
-It preserves the original Human-in-the-Loop RAG foundation while introducing:
+The current demo shows the intended Human-in-the-Loop RAG experience:
 
 - multimodal input
 - a memory curation view
@@ -26,10 +26,11 @@ It preserves the original Human-in-the-Loop RAG foundation while introducing:
 - nightly knowledge graph generation
 - serendipity prompts that reconnect new ideas to historical memory
 
-## Product PRD
+## Product documents
 
-- [Inspiration 2.0 PRD](./docs/PRD.md)
-- [Desktop workspace and future product page](./docs/desktop-ui-direction.md)
+- [Current product requirements](./docs/PRD.md)
+- [Backend technical design](./docs/TRD.md)
+- [Desktop workspace and product page](./docs/desktop-ui-direction.md)
 
 ## Why This Product
 
@@ -38,7 +39,7 @@ Most people capture information in many places, but rarely convert it into reusa
 
 Inspiration is designed to solve that through a five-part loop:
 
-1. Extract ideas from podcast content.
+1. Capture chosen sources and draft ideas from supported material.
 2. Curate what actually matters across multimodal fragments.
 3. Chat only on curated memory.
 4. Generate knowledge structure through agents.
@@ -48,7 +49,7 @@ Inspiration is designed to solve that through a five-part loop:
 
 **Human-in-the-Loop RAG**
 
-Most RAG systems store everything automatically, which introduces noise. Inspiration keeps the opposite principle:
+Automatically storing every extracted idea can introduce noise. Inspiration adds a review step:
 
 - AI drafts takeaways from source content.
 - User edits/selects what is high-signal.
@@ -65,7 +66,7 @@ On top of that foundation, Inspiration adds an agent layer for:
 
 ### 1. Ingest
 
-Use one intake surface for:
+The workspace shows one intake surface for:
 
 - media links
 - text fragments
@@ -102,10 +103,10 @@ Review `Agent Inbox` outputs such as:
 
 ### Live Mode (Local Full Stack)
 
-- Real FastAPI parsing and retrieval pipeline
-- Real Whisper/GPT/Embedding calls
-- SQLite + ChromaDB local persistence
-- Agent prompts and clustering interfaces available for continued productization
+- Real FastAPI podcast audio processing, curation, and retrieval
+- Non-podcast parsing is currently mocked in the backend
+- SQLite + ChromaDB local persistence for saved memory
+- Map relationships and persistent inbox are planned in the [TRD](./docs/TRD.md)
 
 ## Tech Stack
 
