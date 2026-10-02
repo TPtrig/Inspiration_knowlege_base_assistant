@@ -30,6 +30,7 @@ The current demo shows the intended Human-in-the-Loop RAG experience:
 
 - [Current product requirements](./docs/PRD.md)
 - [Backend technical design](./docs/TRD.md)
+- [Personal computer handoff](./docs/HANDOFF_PERSONAL_COMPUTER.md)
 - [Desktop workspace and product page](./docs/desktop-ui-direction.md)
 
 ## Why This Product
@@ -96,23 +97,23 @@ Review `Agent Inbox` outputs such as:
 
 ### Demo Mode (Public Vercel Link)
 
-- No backend required
-- No API key required
-- Simulated parse/curate/chat/agent behavior
+- Seeded chats, sources, map, and inbox are viewable without a backend or API key
+- Sample chat and curation remain illustrative; podcast extraction does not fabricate a result
 - Best for portfolio and product storytelling
 
 ### Live Mode (Local Full Stack)
 
-- Real FastAPI podcast audio processing, curation, and retrieval
-- Non-podcast parsing is currently mocked in the backend
+- The workspace keeps its sample material while Xiaoyuzhou episode links and local audio files use real FastAPI transcription, insight extraction, curation, and retrieval
+- Non-podcast parsing remains outside Live Mode; the legacy backend mock endpoint is not used by the Live workspace
 - SQLite + ChromaDB local persistence for saved memory
+- Live chat shows numbered citations to saved takeaways and links to the original podcast where available; citations remain visible in conversation history
 - Map relationships and persistent inbox are planned in the [TRD](./docs/TRD.md)
 
 ## Tech Stack
 
 - Frontend: Next.js (App Router), React, Tailwind CSS, Lucide
 - Backend: FastAPI
-- AI (live mode): OpenAI Whisper, GPT-4o-mini, text-embedding-3-small
+- AI (live mode): OpenAI Whisper or Feishu Minutes for transcription; GPT-4o-mini and text-embedding-3-small for extraction and memory
 - Data (live mode): SQLite + ChromaDB
 
 ## Local Setup (Optional Full Stack)
@@ -121,11 +122,19 @@ Review `Agent Inbox` outputs such as:
 
 ```bash
 cd backend
-python3 -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+# Local development only: optionally copy .env.example to .env and set OPENAI_API_KEY.
+# Hosted backend: set OPENAI_API_KEY in the host's secret/environment settings instead.
 uvicorn main:app --reload --host 127.0.0.1 --port 8000
 ```
+
+Podcast extraction accepts a Xiaoyuzhou episode link or one MP3, M4A, WAV, AAC, or OGG file (up to 500 MB). The backend reads `OPENAI_API_KEY` from its process environment or, for optional local development, the Git-ignored `backend/.env`; the workspace does not ask for or transmit the key. Set the key in the backend hosting provider's secret settings for a deployed product. Supported audio at or under 25 MB uses Whisper by default; larger audio and AAC use Feishu Minutes. For Feishu, install and log in to `lark-cli` as your user, then make it available on `PATH` or set `LARK_CLI_PATH`. Set `PODCAST_TRANSCRIBER=feishu` to use it for every episode, or `PODCAST_TRANSCRIBER=openai` to use only Whisper. The API retains the transcript and source reference; temporary audio is deleted after processing. Current citations identify saved takeaways, without verified speaker names or audio timestamps.
+
+Keep the backend bound to `127.0.0.1` for this single-user setup. Before exposing it publicly, add user authentication, request limits, and a spend cap; hiding the key on the server alone does not stop strangers from calling a public endpoint. Set `FRONTEND_ORIGINS` on the backend to the permitted frontend origins when deploying.
+
+The public Vercel demo currently serves the frontend only. Live podcast jobs and saved memory still depend on the local FastAPI process, SQLite file, and Chroma directory. A durable hosted product needs a deployed backend and persistent database/vector storage; a cloud API key alone does not preserve these local records.
 
 ### Frontend
 

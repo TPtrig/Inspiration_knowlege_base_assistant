@@ -11,21 +11,21 @@ Implement the PRD's first closed loop without changing the current landing page 
 
 Important gaps observed in code:
 
-- The non-podcast parse endpoint generates mock takeaways from submitted strings; it does not read a paper URL or an attachment.
-- Frontend attachments pass file names only.
-- Chat returns plain context strings; the user cannot follow an answer to a stable memory/source ID.
+- The legacy non-podcast parse endpoint generates mock takeaways from submitted strings; the Live workspace no longer calls it. Notes, papers, images, and video still need real intake.
+- Podcast audio attachments send file bytes; image and video intake are not implemented.
+- Chat now returns numbered citations to saved takeaways with memory IDs, task IDs, source titles, and source URLs. Transcript-level quotes, speakers, and timestamps are not yet linked to takeaways.
 - Topic names and map geometry are preset in the frontend. Live Mode intentionally has no relationship edges.
 - Inbox entries and read state are held in frontend memory; the backend's cluster is a keyword grouping of media fragments, including material that was not curated.
 - Background tasks and the scheduler live inside the API process. They are not recoverable after a restart.
-- The browser holds an OpenAI key in session storage for Live Mode.
+- Live Mode reads the OpenAI key from the backend environment; the browser does not receive or submit it. Previously saved browser session keys are cleared on workspace load.
 
 ## 2. Architecture and authority
 
 Keep the current stack for the first release: Next.js client, FastAPI service, SQLite for durable records, Chroma for vector search, and a configurable model provider. SQLite is authoritative. Chroma is a rebuildable search projection, not the sole record of a saved idea.
 
-Use a single local API process and one job worker. Long-running work is represented by durable SQLite jobs. A process restart reclaims interrupted jobs. Demo Mode remains a separate, backend-free path.
+Use a single local API process and one job worker. Long-running work is represented by durable SQLite jobs. A process restart reclaims interrupted jobs. Sample material can render without a backend; podcast extraction in that same workspace uses the backend and creates a separate real conversation.
 
-For a single-person local deployment, prefer a server-side API key from environment configuration. Do not store a provider key in SQLite or ship it in API responses. Existing request-key endpoints may remain temporarily for compatibility while the frontend moves to the server setting. If no key is configured, manual notes may still be saved, but AI extraction and answers show a clear configuration error.
+For local development, optionally load `OPENAI_API_KEY` from `backend/.env`. For a hosted backend, set it in the hosting provider's secret settings; the backend already reads its process environment, so a local file is not required. Do not store a provider key in SQLite or ship it in API responses. AI extraction and answers show a clear configuration error if no key is configured. Public deployment additionally requires persistent source/memory storage, user authentication, request limits, and spend controls: CORS limits browser origins but does not protect an exposed API endpoint.
 
 The current browser directly calls the FastAPI base URL. Restrict CORS to configured local frontend origins for Live Mode. Public multi-user access, authentication, and cloud hosting require another design pass.
 
@@ -97,7 +97,9 @@ The existing /api/process, /api/tasks/{id}, /api/brain/*, /api/chat, and convers
 
 ### Intake
 
-- Audio: retain the current supported MP3/podcast resolver, transcription, and takeaway extraction; attach the resulting transcript and drafts to a source.
+- Audio: accept Xiaoyuzhou episode links and MP3/M4A/WAV/AAC/OGG uploads through separate inputs, then run one transcription and takeaway pipeline. Reject other podcast sites and Live Mode input types explicitly.
+- Transcription: `PODCAST_TRANSCRIBER=auto` uses OpenAI Whisper for supported files up to 25 MB and Feishu Minutes through the local `lark-cli` for larger files or AAC. `feishu` and `openai` force one provider. Feishu first uploads the file to Drive, creates a Minute, waits for a transcript, and stores the returned minute URL. It requires a logged-in user CLI profile. The current in-process job runner is a limitation until durable jobs ship.
+- Uploads: multipart `POST /api/process/upload` stages one audio file up to 500 MB and stores its task and transcript in SQLite. Temporary media and exported transcript files are removed after processing. The original filename and upload task ID remain as provenance.
 - Note or paper excerpt: use exactly the submitted text as input. The URL is provenance, not automatically fetched full text.
 - Use bounded text length, network timeouts, and clear errors. An external URL must pass scheme, hostname, resolved-IP, redirect, size, and content-type checks before any server fetch to prevent local-network access through a pasted link.
 
@@ -107,8 +109,8 @@ The existing /api/process, /api/tasks/{id}, /api/brain/*, /api/chat, and convers
 2. Join candidates to SQLite. Discard any item that is disabled, deleted, not indexed, or absent.
 3. Apply a relevance gate. If no item clears it, return the insufficient-evidence response.
 4. Send numbered memory excerpts and source labels to the answer model with a strict instruction to use only that material.
-5. Validate that returned citation IDs are among the supplied evidence. Persist the answer and citation snapshot with the conversation.
-6. Return evidence objects to the client. A model statement without supporting evidence is not shown as a citation.
+5. Validate that returned citation numbers are among the supplied evidence. Persist the answer and citation snapshot with the conversation. This is implemented for the existing `/api/chat` endpoint.
+6. Return evidence objects to the client. The current evidence is the selected takeaway, not a verbatim transcript excerpt. Transcript spans and speaker/time references remain future work.
 
 Tune the relevance gate with a small, labeled set of supported and unsupported questions. Prompt wording alone is not the evidence gate.
 

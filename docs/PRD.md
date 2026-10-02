@@ -36,12 +36,12 @@ The first backend release is a **single-person, locally usable closed loop**: in
 
 | Input | First release behavior |
 | --- | --- |
-| Podcast episode or direct audio URL | Resolve supported audio, transcribe it, propose takeaways, and retain source provenance. |
+| Xiaoyuzhou episode link or uploaded audio file | Resolve or receive audio, transcribe it, propose takeaways, and retain source provenance. |
 | Plain text or personal note | Save the text as a source and propose takeaways from it. |
 | Paper or research link | Save the URL and a user-pasted excerpt or notes. Use that submitted text for extraction. |
 | Video link or image attachment | Keep the demo affordance; show that real Live Mode parsing is unavailable until implemented. |
 
-A paper URL alone does not imply full-text access. PDF upload, arbitrary web scraping, video transcription, image understanding, automatic source verification, accounts, and sync are outside this release.
+A paper URL alone does not imply full-text access. Podcast links from platforms other than Xiaoyuzhou, direct audio URLs, PDF upload, arbitrary web scraping, video multimodal analysis, image understanding, automatic source verification, accounts, and sync are outside this release.
 
 ## Core journey
 
@@ -111,7 +111,7 @@ There is one New Chat action. "New Thread" and "New Chat" are not separate conce
 ## Later releases
 
 - Automatic PDF ingestion and citations to document passages.
-- Video transcription and image understanding.
+- Video multimodal analysis and image understanding.
 - Accounts, data isolation, sync, and public cloud hosting.
 - Optional user notes about why a source is trusted.
 - Scheduled synthesis for larger libraries. This release refreshes after relevant changes; it need not depend on a nightly cron job.
@@ -123,10 +123,10 @@ The table describes the repository on 2026-09-29. Targets are not already shippe
 | Area | Current repository | First-release target |
 | --- | --- | --- |
 | Page and workspace | Light landing page at /; desktop workspace at /workspace | Keep this direction |
-| Demo Mode | Seeded chats, sources, map, inbox; simulated parsing and answers | Keep, with clear sample labeling |
-| Podcast Live Mode | Audio resolution, transcription, draft takeaways | Preserve, with complete source provenance |
-| Other Live Mode inputs | Non-podcast parse endpoint returns mock results; attachments send names, not file contents | Real note and paper-excerpt intake; explicit unsupported image/video states |
-| Memory and chat | SQLite metadata, Chroma embeddings, enabled-item filtering; anonymous context strings | Stable source citations, idempotent saves, index consistency |
+| Sample workspace | Seeded chats, sources, map, inbox and illustrative answers remain; podcast links and audio files now use the real backend when available | Keep examples visible while distinguishing real results |
+| Podcast Live Mode | Xiaoyuzhou episode resolution and actual audio file upload share transcription, transcript storage, and draft takeaways | Preserve and strengthen source provenance and job recovery |
+| Other inputs | Legacy non-podcast parse endpoint still returns mock results; the workspace rejects unsupported inputs rather than calling it | Real note and paper-excerpt intake in a later slice; explicit unsupported image/video states |
+| Memory and chat | SQLite metadata, Chroma embeddings, enabled-item filtering; chat cites saved takeaways and keeps citation snapshots in history | Transcript-level citations, idempotent saves, index consistency |
 | Map | Fixed frontend topics; Live Mode has no relationship edges | Persisted topics and evidence-backed weighted edges |
 | Inbox | Frontend state; keyword hints and graph payload lack durable evidence | Persisted items, read state, evidence links |
 | Background work | In-process tasks and local-time scheduler | Recoverable jobs triggered by memory changes |
@@ -143,5 +143,6 @@ The release is complete when one person can add a podcast and a paper excerpt, c
 ## Decisions recorded
 
 - 2026-09-29: Start with a single-person usable backend.
+- 2026-09-29: Implement podcast intake first: Xiaoyuzhou episode links and uploaded audio files share one real transcription and review flow. Other source types follow later.
 - 2026-09-29: Start paper support with links plus manual excerpts/notes; PDF parsing comes later.
 - Selected material is the user's chosen reference set, not independently verified ground truth.

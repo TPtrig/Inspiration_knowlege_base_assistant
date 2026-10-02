@@ -11,7 +11,6 @@ import {
   ImagePlus,
   Link2,
   LoaderCircle,
-  MessageSquare,
   Paperclip,
   Send,
   Sparkles,
@@ -27,11 +26,22 @@ type ChatMessage = {
   role: ChatRole;
   content: string;
   contexts?: string[];
+  citations?: ChatCitation[];
   createdAt: number;
+};
+
+type ChatCitation = {
+  number: number;
+  memory_id: string;
+  task_id: string;
+  source_title: string;
+  source_url: string | null;
+  excerpt: string;
 };
 
 type Conversation = {
   id: string;
+  persisted?: boolean;
   title: string;
   messages: ChatMessage[];
   messageCount: number;
@@ -47,6 +57,8 @@ type PodcastAsset = {
   sourceLabel: string;
   domain?: string;
   taskId?: string;
+  transcript?: string;
+  minuteUrl?: string;
   createdAt: number;
 };
 
@@ -77,7 +89,8 @@ type ParseState = {
 type InputAttachment = {
   id: string;
   name: string;
-  kind: "image" | "file";
+  kind: "image" | "audio" | "file";
+  file: File;
 };
 
 type ConversationSummaryApi = {
@@ -94,15 +107,19 @@ type ConversationMessageApi = {
   role: ChatRole;
   content: string;
   created_at: string;
+  citations?: ChatCitation[];
 };
 
 type TaskStatusApi = {
   success: boolean;
   task_id: string;
   conversation_id?: string | null;
+  input_url?: string | null;
+  created_at?: string | null;
   status: string;
   message: string;
   audio_url?: string | null;
+  minute_url?: string | null;
   transcript?: string | null;
   title?: string | null;
   summary?: string | null;
@@ -126,6 +143,7 @@ type ChatApiResponse = {
   answer: string;
   contexts: string[];
   context_count: number;
+  citations: ChatCitation[];
 };
 
 type LoaderTriviaApi = {
@@ -246,13 +264,6 @@ const loaderTriviaByDomain: Record<string, string[]> = {
     "Chapterized podcasts create cleaner knowledge graphs because topic shifts are already partially labeled."
   ]
 };
-
-const parseStages = [
-  "Reading signal from your source...",
-  "Parsing media in background...",
-  "Drafting takeaways and links...",
-  "Preparing Inspiration memory..."
-];
 
 const presetIslandModules = [
   {
@@ -474,19 +485,6 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-function makeLocalConversation(): Conversation {
-  const now = Date.now();
-  return {
-    id: makeId("conv"),
-    title: "New Chat",
-    messages: [],
-    messageCount: 0,
-    podcastIds: [],
-    createdAt: now,
-    updatedAt: now
-  };
-}
-
 function createDemoWorkspaceSeed() {
   const now = Date.now();
 
@@ -617,50 +615,6 @@ function createFallbackTrivia(seed: string) {
     domain,
     trivia: loaderTriviaByDomain[domain]
   };
-}
-
-function makeMockTitle(rawInput: string, attachments: InputAttachment[]): string {
-  const firstUrl = extractUrls(rawInput)[0];
-  if (firstUrl) {
-    return derivePodcastTitle(firstUrl);
-  }
-  if (attachments.length) {
-    return `Visual note: ${summarizeTextTitle(attachments[0].name)}`;
-  }
-  const compact = summarizeTextTitle(rawInput);
-  return compact === "New Chat" ? "Captured text note" : `Text note: ${compact}`;
-}
-
-function mockTakeawaysFromInput(rawInput: string, attachments: InputAttachment[]): string[] {
-  const title = makeMockTitle(rawInput, attachments);
-  const domain = pickLoaderDomain(`${rawInput} ${attachments.map((item) => item.name).join(" ")}`);
-  const domainLead =
-    domain === "Computer Vision"
-      ? "Visual material benefits from object-level grouping before retrieval."
-      : domain === "NLP / LLM / RAG"
-        ? "Curated memory and precise retrieval usually matter more than model size."
-        : "Long-form listening becomes useful when it is rewritten into portable decisions.";
-
-  return [
-    `${title}: capture the strongest claim first, not the whole source.`,
-    domainLead,
-    "Promote only high-signal takeaways into the shared memory layer.",
-    "Keep source context attached so later answers can stay grounded.",
-    "Use synthesis notes to connect this source with older discoveries."
-  ];
-}
-
-function describeInputMode(rawInput: string, attachments: InputAttachment[]): string {
-  if (extractUrls(rawInput).length > 0 && attachments.length > 0) {
-    return "Link + image intake";
-  }
-  if (extractUrls(rawInput).length > 0) {
-    return "Media link intake";
-  }
-  if (attachments.length > 0) {
-    return "Image intake";
-  }
-  return "Text intake";
 }
 
 function localIsoDate(): string {
@@ -811,6 +765,17 @@ async function apiListConversations() {
   });
 }
 
+async function apiAddConversationMessage(conversationId: string, content: string) {
+  return apiFetch<{ success: boolean }>(`/api/conversations/${encodeURIComponent(conversationId)}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ role: "user", content })
+  });
+}
+
+async function apiListTasks() {
+  return apiFetch<{ success: boolean; tasks: TaskStatusApi[] }>("/api/tasks", { method: "GET" });
+}
+
 async function apiGetConversation(conversationId: string) {
   return apiFetch<{
     success: boolean;
@@ -819,28 +784,35 @@ async function apiGetConversation(conversationId: string) {
   }>(`/api/conversations/${encodeURIComponent(conversationId)}`, { method: "GET" });
 }
 
-async function apiCreateProcess(url: string, openaiApiKey: string, conversationId: string) {
+async function apiCreateProcess(url: string, conversationId: string) {
   return apiFetch<{ success: boolean; task_id: string; status: string; message: string }>("/api/process", {
     method: "POST",
-    body: JSON.stringify({ url, openaiApiKey, conversationId })
+    body: JSON.stringify({ url, conversationId })
   });
 }
 
-async function apiParseMedia(content: string, mediaUrl: string | null, contentType: string, conversationId: string) {
-  return apiFetch<{ success: boolean; task_id: string; status: string; message: string; mode: string }>("/api/parse_media", {
-    method: "POST",
-    body: JSON.stringify({ content, mediaUrl, contentType, conversationId })
-  });
+async function apiUploadPodcastAudio(file: File, conversationId: string) {
+  const body = new FormData();
+  body.append("file", file);
+  body.append("conversationId", conversationId);
+  const response = await fetch(`${API_BASE}/api/process/upload`, { method: "POST", body, cache: "no-store" });
+  const payload = (await response.json().catch(() => ({}))) as {
+    success?: boolean; task_id?: string; status?: string; message?: string; detail?: string;
+  };
+  if (!response.ok || !payload.task_id) {
+    throw new Error(payload.detail || `Upload failed with ${response.status}`);
+  }
+  return payload as { success: boolean; task_id: string; status: string; message: string };
 }
 
 async function apiGetTask(taskId: string) {
   return apiFetch<TaskStatusApi>(`/api/tasks/${encodeURIComponent(taskId)}`, { method: "GET" });
 }
 
-async function apiSaveBrain(taskId: string, takeaways: string[], openaiApiKey: string) {
+async function apiSaveBrain(taskId: string, takeaways: string[]) {
   return apiFetch<{ success: boolean; task_id: string; saved_count: number; item_ids?: string[]; message: string }>("/api/brain/save", {
     method: "POST",
-    body: JSON.stringify({ taskId, takeaways, openaiApiKey })
+    body: JSON.stringify({ taskId, takeaways })
   });
 }
 
@@ -861,10 +833,10 @@ async function apiDeleteBrainItem(itemId: string) {
   });
 }
 
-async function apiChat(question: string, conversationId: string, openaiApiKey: string) {
+async function apiChat(question: string, conversationId: string) {
   return apiFetch<ChatApiResponse>("/api/chat", {
     method: "POST",
-    body: JSON.stringify({ question, conversationId, topK: 4, openaiApiKey })
+    body: JSON.stringify({ question, conversationId, topK: 4 })
   });
 }
 
@@ -895,6 +867,7 @@ async function apiSerendipityHint(content: string, conversationId?: string) {
 function summaryToConversation(summary: ConversationSummaryApi): Conversation {
   return {
     id: summary.id,
+    persisted: true,
     title: summary.title,
     messages: [],
     messageCount: summary.message_count,
@@ -917,9 +890,9 @@ export default function Page() {
   const [podcasts, setPodcasts] = useState<PodcastAsset[]>([]);
   const [takeaways, setTakeaways] = useState<TakeawayItem[]>([]);
 
-  const [openaiApiKey, setOpenaiApiKey] = useState("");
   const [messageInput, setMessageInput] = useState("");
   const [attachments, setAttachments] = useState<InputAttachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [parseState, setParseState] = useState<ParseState>({
     running: false,
@@ -1013,11 +986,13 @@ export default function Page() {
         id: msg.id,
         role: msg.role,
         content: msg.content,
+        citations: msg.citations,
         createdAt: parseIsoToMillis(msg.created_at)
       }));
 
       const nextConversation: Conversation = {
         id: summary.id,
+        persisted: true,
         title: summary.title,
         messages: nextMessages,
         messageCount: summary.message_count,
@@ -1035,18 +1010,11 @@ export default function Page() {
   };
 
   const loadConversationDetail = async (conversationId: string) => {
-    if (isDemoMode) {
-      return;
-    }
     const detail = await apiGetConversation(conversationId);
     applyConversationDetail(conversationId, detail.conversation, detail.messages);
   };
 
   const refreshBrainItems = async () => {
-    if (isDemoMode) {
-      return;
-    }
-
     const payload = await apiListBrainItems();
 
     const savedItems: TakeawayItem[] = payload.items.map((item) => ({
@@ -1063,7 +1031,8 @@ export default function Page() {
 
     setTakeaways((prev) => {
       const drafts = prev.filter((t) => !t.persisted);
-      return [...savedItems, ...drafts];
+      const samples = isDemoMode ? prev.filter((t) => t.persisted && t.taskId?.startsWith("seed-task-")) : [];
+      return [...samples, ...savedItems, ...drafts];
     });
 
     for (const item of payload.items) {
@@ -1109,6 +1078,59 @@ export default function Page() {
         setSelectedInboxItemId(seed.selectedInboxItemId);
         setInsightCluster(seed.insightCluster);
         setBootstrapping(false);
+        void (async () => {
+          try {
+            const [conversationPayload, taskPayload, brainPayload] = await Promise.all([
+              apiListConversations(), apiListTasks(), apiListBrainItems()
+            ]);
+            const realTasks = taskPayload.tasks.filter((task) =>
+              (task.input_url?.startsWith("upload://") || /https:\/\/(?:www\.|web\.)?xiaoyuzhoufm\.com\/episode\//.test(task.input_url ?? ""))
+            );
+            const relevantConversationIds = new Set(realTasks.map((task) => task.conversation_id).filter(Boolean));
+            const summaries = conversationPayload.conversations.filter((summary) =>
+              summary.message_count > 0 || relevantConversationIds.has(summary.id)
+            );
+            const details = await Promise.all(summaries.map((summary) => apiGetConversation(summary.id)));
+            setConversations((prev) => [
+              ...details.map(({ conversation, messages }) => ({
+                ...summaryToConversation(conversation),
+                messages: messages.map((message) => ({
+                  id: message.id, role: message.role, content: message.content,
+                  createdAt: parseIsoToMillis(message.created_at)
+                })),
+                podcastIds: realTasks.filter((task) => task.conversation_id === conversation.id).map((task) => podcastIdForTask(task.task_id))
+              })),
+              ...prev.filter((conversation) => !conversation.persisted || !details.some((detail) => detail.conversation.id === conversation.id))
+            ]);
+            setPodcasts((prev) => [
+              ...realTasks.filter((task) => task.status === "completed").map((task) => ({
+                id: podcastIdForTask(task.task_id), taskId: task.task_id,
+                title: task.title?.trim() || derivePodcastTitle(task.input_url || ""),
+                url: task.input_url || "", sourceLabel: task.input_url?.startsWith("upload://") ? "Uploaded audio" : "Xiaoyuzhou episode",
+                minuteUrl: task.minute_url || undefined,
+                createdAt: parseIsoToMillis(task.created_at)
+              })),
+              ...prev.filter((podcast) => !podcast.taskId || !realTasks.some((task) => task.task_id === podcast.taskId))
+            ]);
+            const savedKeys = new Set(brainPayload.items.map((item) => `${item.task_id}\u0000${item.text}`));
+            const drafts: TakeawayItem[] = realTasks.filter((task) => task.status === "completed").flatMap((task) =>
+              (task.takeaways ?? []).filter((idea) => !savedKeys.has(`${task.task_id}\u0000${idea}`)).map((idea, index) => ({
+                id: `draft-${task.task_id}-${index}`, podcastId: podcastIdForTask(task.task_id),
+                podcastTitle: task.title || "Podcast", podcastUrl: task.input_url || "", text: idea,
+                enabled: true, taskId: task.task_id, persisted: false
+              }))
+            );
+            const saved: TakeawayItem[] = brainPayload.items.map((item) => ({
+              id: `saved-${item.id}`, itemId: item.id, taskId: item.task_id,
+              podcastId: podcastIdForTask(item.task_id), podcastTitle: item.podcast_title,
+              podcastUrl: item.podcast_url, text: item.text, enabled: item.enabled,
+              persisted: true
+            }));
+            setTakeaways((prev) => [...saved, ...drafts, ...prev.filter((item) => item.taskId?.startsWith("seed-task-"))]);
+          } catch {
+            // Sample material stays available while the local API is offline.
+          }
+        })();
         return;
       }
 
@@ -1142,25 +1164,9 @@ export default function Page() {
       return;
     }
 
-    const stored =
-      window.sessionStorage.getItem("inspiration:openai-key") ??
-      window.sessionStorage.getItem("podbrain:openai-key") ??
-      "";
-    setOpenaiApiKey(stored);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    if (openaiApiKey.trim()) {
-      window.sessionStorage.setItem("inspiration:openai-key", openaiApiKey);
-      return;
-    }
-
     window.sessionStorage.removeItem("inspiration:openai-key");
-  }, [openaiApiKey]);
+    window.sessionStorage.removeItem("podbrain:openai-key");
+  }, []);
 
   useEffect(() => {
     const source = messageInput.trim();
@@ -1295,15 +1301,6 @@ export default function Page() {
   }, [dragPane, leftPaneWidth, rightPaneWidth]);
 
   const createNewChat = async () => {
-    if (isDemoMode) {
-      const next = makeLocalConversation();
-      setConversations((prev) => [next, ...prev]);
-      setActiveConversationId(next.id);
-      setActivePanel("chat");
-      setHint(null);
-      return;
-    }
-
     try {
       const payload = await apiCreateConversation("New Chat");
       const next = summaryToConversation(payload.conversation);
@@ -1385,12 +1382,14 @@ export default function Page() {
       return;
     }
 
+    const selected = isDemoMode ? files : files.slice(0, 1);
     setAttachments((prev) => [
-      ...prev,
-      ...files.map((file) => ({
+      ...(isDemoMode ? prev : []),
+      ...selected.map((file) => ({
         id: makeId("asset"),
         name: file.name,
-        kind: (file.type.startsWith("image/") ? "image" : "file") as InputAttachment["kind"]
+        kind: (file.type.startsWith("image/") ? "image" : file.type.startsWith("audio/") ? "audio" : "file") as InputAttachment["kind"],
+        file
       }))
     ]);
   };
@@ -1400,6 +1399,7 @@ export default function Page() {
   };
 
   const onInputPaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    if (!isDemoMode) return;
     const imageFiles = Array.from(event.clipboardData.files);
     if (imageFiles.length) {
       addAttachmentList(imageFiles);
@@ -1416,14 +1416,17 @@ export default function Page() {
     const taskId = task.task_id;
     const podcastId = podcastIdForTask(taskId);
     const title = (task.title || "").trim() || derivePodcastTitle(inputUrl);
-    const url = (task.audio_url || "").trim() || inputUrl.trim();
+    const url = inputUrl.trim();
+    const isUploadedAudio = !url.startsWith("http");
 
     ensurePodcast({
       id: podcastId,
       taskId,
       title,
       url,
-      sourceLabel: "Parsed from backend",
+      sourceLabel: isUploadedAudio ? "Uploaded audio" : "Xiaoyuzhou episode",
+      transcript: task.transcript || undefined,
+      minuteUrl: task.minute_url || undefined,
       createdAt: Date.now()
     });
 
@@ -1500,14 +1503,34 @@ export default function Page() {
     pollTimerRef.current = window.setInterval(poll, 2500);
   };
 
+  const loadPodcastTranscript = async (podcast: PodcastAsset) => {
+    if (!podcast.taskId || podcast.transcript) return;
+    try {
+      const task = await apiGetTask(podcast.taskId);
+      ensurePodcast({ ...podcast, transcript: task.transcript || undefined, minuteUrl: task.minute_url || undefined });
+    } catch (error) {
+      setHint(error instanceof Error ? error.message : "Could not load transcript.");
+    }
+  };
+
   const startParseAudio = async () => {
     const targetConversation = activeConversation;
     const rawInput = messageInput.trim();
     const rawUrl = extractUrls(rawInput)[0] ?? "";
-    const key = openaiApiKey.trim();
-    const modeLabel = describeInputMode(rawInput, attachments);
-    const shouldUseLegacyPodcastPipeline =
+    const audioAttachment = attachments.length === 1 && /\.(mp3|m4a|wav|aac|ogg)$/i.test(attachments[0].name) ? attachments[0] : null;
+    const modeLabel = audioAttachment ? "Podcast audio" : "Xiaoyuzhou episode";
+    let supportedPodcastUrl = false;
+    try {
+      const parsedUrl = new URL(rawUrl);
+      supportedPodcastUrl = parsedUrl.protocol === "https:" &&
+        ["xiaoyuzhoufm.com", "www.xiaoyuzhoufm.com", "web.xiaoyuzhoufm.com"].includes(parsedUrl.hostname) &&
+        /^\/episode\/[^/]+/.test(parsedUrl.pathname);
+    } catch {
+      supportedPodcastUrl = false;
+    }
+    const isPodcastLinkInput =
       !attachments.length &&
+      supportedPodcastUrl &&
       !!rawUrl &&
       (rawInput === rawUrl || rawInput.replace(/\s+/g, " ").trim() === rawUrl);
 
@@ -1516,11 +1539,19 @@ export default function Page() {
       return;
     }
     if (!rawInput && !attachments.length) {
-      setHint("Paste text, an image, or a media link to begin.");
+      setHint("Paste a Xiaoyuzhou episode link or attach an audio file.");
       return;
     }
-    if (!isDemoMode && shouldUseLegacyPodcastPipeline && !key) {
-      setHint("OpenAI API key is required for parsing.");
+    if (!audioAttachment && !isPodcastLinkInput) {
+      setHint("Podcast extraction currently accepts one Xiaoyuzhou episode link or one audio file. Nothing was added.");
+      return;
+    }
+    if (audioAttachment && rawInput) {
+      setHint("Add either an audio file or a Xiaoyuzhou link, one at a time.");
+      return;
+    }
+    if (audioAttachment && audioAttachment.file.size > 500 * 1024 * 1024) {
+      setHint("Audio files must be 500 MB or smaller.");
       return;
     }
     if (parseState.running) {
@@ -1544,85 +1575,26 @@ export default function Page() {
     );
     beginTriviaRotation();
 
-    if (isDemoMode) {
-      if (pollTimerRef.current) {
-        window.clearInterval(pollTimerRef.current);
-      }
-
-      let steps = 0;
-      pollTimerRef.current = window.setInterval(() => {
-        steps += 1;
-
-        setParseState((prev) => ({
-          ...prev,
-          stageIndex: Math.min(prev.stageIndex + 1, parseStages.length - 1)
-        }));
-
-        if (steps >= parseStages.length) {
-          clearParseTimers();
-
-          const podcastId = makeId("pod");
-          const title = makeMockTitle(rawInput, attachments);
-          const sourceUrl = rawUrl || `mock://${modeLabel.toLowerCase().replace(/\s+/g, "-")}`;
-          const podcast: PodcastAsset = {
-            id: podcastId,
-            title,
-            url: sourceUrl,
-            sourceLabel: isDemoMode ? "Demo parser" : "Frontend mock parser",
-            createdAt: Date.now()
-          };
-
-          ensurePodcast(podcast);
-
-          const drafts: TakeawayItem[] = mockTakeawaysFromInput(rawInput, attachments).map((text) => ({
-            id: makeId("tk"),
-            podcastId,
-            podcastTitle: title,
-            podcastUrl: sourceUrl,
-            text,
-            enabled: true,
-            persisted: false
-          }));
-
-          setTakeaways((prev) => [...drafts, ...prev]);
-          upsertConversation(targetConversation.id, (c) => ({
-            ...c,
-            podcastIds: c.podcastIds.includes(podcastId) ? c.podcastIds : [podcastId, ...c.podcastIds],
-            updatedAt: Date.now()
-          }));
-
-          appendMessage(targetConversation.id, {
-            id: makeId("msg"),
-            role: "assistant",
-            content: `${isDemoMode ? "Demo" : "Mock"} source ready: ${title}. Review the extracted ideas in Curate memory.`,
-            createdAt: Date.now()
-          });
-
-          setMessageInput("");
-          setAttachments([]);
-          setHint(
-            isDemoMode
-              ? "Demo source ready. Review the extracted ideas in Curate memory."
-              : "Frontend mock parse completed. Backend media parser will replace this in the next step."
-          );
-          void refreshInsightCluster(true);
-          finishParse();
-        }
-      }, 1700);
-      return;
-    }
-
     try {
-      const payload = shouldUseLegacyPodcastPipeline
-        ? await apiCreateProcess(rawUrl, key, targetConversation.id)
-        : await apiParseMedia(
-            rawInput || attachments.map((item) => item.name).join(", "),
-            rawUrl || null,
-            modeLabel.toLowerCase().replace(/\s+/g, "_"),
-            targetConversation.id
-          );
+      let conversationId = targetConversation.id;
+      if (isDemoMode && !targetConversation.persisted) {
+        const created = await apiCreateConversation("New Chat");
+        const realConversation = summaryToConversation(created.conversation);
+        conversationId = realConversation.id;
+        setConversations((prev) => [realConversation, ...prev]);
+        setActiveConversationId(conversationId);
+      }
+      const payload = audioAttachment
+        ? await apiUploadPodcastAudio(audioAttachment.file, conversationId)
+        : await apiCreateProcess(rawUrl, conversationId);
+      try {
+        await apiAddConversationMessage(conversationId, audioAttachment ? `Uploaded audio: ${audioAttachment.name}` : rawUrl);
+        await loadConversationDetail(conversationId);
+      } catch {
+        // The parse task is already queued; keep polling even if the chat message fails.
+      }
       setParseState((prev) => ({ ...prev, taskId: payload.task_id }));
-      pollTaskUntilDone(payload.task_id, targetConversation.id, rawUrl || rawInput || modeLabel);
+      pollTaskUntilDone(payload.task_id, conversationId, audioAttachment?.name || rawUrl);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to start parse task.";
       setHint(message);
@@ -1636,12 +1608,11 @@ export default function Page() {
     }
 
     const question = messageInput.trim();
-    const key = openaiApiKey.trim();
-    if (!question) {
+    if (attachments.length || extractUrls(question).length) {
+      await startParseAudio();
       return;
     }
-    if (!isDemoMode && !key) {
-      setHint("OpenAI API key is required for chat.");
+    if (!question) {
       return;
     }
 
@@ -1658,7 +1629,7 @@ export default function Page() {
     setMessageInput("");
     setChatBusy(true);
 
-    if (isDemoMode) {
+    if (isDemoMode && !activeConversation.persisted) {
       window.setTimeout(() => {
         const result = demoChatAnswer(question, enabledTakeaways.map((t) => t.text));
         appendMessage(convId, {
@@ -1674,12 +1645,13 @@ export default function Page() {
     }
 
     try {
-      const result = await apiChat(question, convId, key);
+      const result = await apiChat(question, convId);
       appendMessage(convId, {
         id: makeId("msg"),
         role: "assistant",
         content: result.answer,
         contexts: result.contexts,
+        citations: result.citations,
         createdAt: Date.now()
       });
     } catch (error) {
@@ -1696,20 +1668,15 @@ export default function Page() {
   };
 
   const saveSelectedToBrain = async (sourceId: string | null = null) => {
-    const key = openaiApiKey.trim();
-    if (!isDemoMode && !key) {
-      setHint("OpenAI API key is required to save selected takeaways.");
-      return;
-    }
-
     const selectedDrafts = takeaways.filter((item) => item.enabled && !item.persisted && (!sourceId || item.podcastId === sourceId));
     if (!selectedDrafts.length) {
       setHint("No selected draft takeaways to save.");
       return;
     }
-
-    if (isDemoMode) {
-      const ids = new Set(selectedDrafts.map((item) => item.id));
+    const sampleDrafts = selectedDrafts.filter((item) => isDemoMode && item.taskId?.startsWith("seed-task-"));
+    const realDrafts = selectedDrafts.filter((item) => !sampleDrafts.includes(item));
+    if (!realDrafts.length) {
+      const ids = new Set(sampleDrafts.map((item) => item.id));
       setTakeaways((prev) =>
         prev.map((item) => {
           if (!ids.has(item.id)) {
@@ -1722,12 +1689,12 @@ export default function Page() {
           };
         })
       );
-      setHint(`Demo saved ${selectedDrafts.length} takeaway(s) to local memory.`);
+      setHint(`Sample saved ${sampleDrafts.length} takeaway(s) locally.`);
       return;
     }
 
     const byTask = new Map<string, string[]>();
-    for (const item of selectedDrafts) {
+    for (const item of realDrafts) {
       if (!item.taskId) {
         continue;
       }
@@ -1746,14 +1713,17 @@ export default function Page() {
 
     try {
       for (const [taskId, texts] of byTask.entries()) {
-        await apiSaveBrain(taskId, texts, key);
+        await apiSaveBrain(taskId, texts);
       }
 
-      const selectedIds = new Set(selectedDrafts.map((item) => item.id));
-      setTakeaways((prev) => prev.filter((item) => !selectedIds.has(item.id)));
+      const realIds = new Set(realDrafts.map((item) => item.id));
+      const sampleIds = new Set(sampleDrafts.map((item) => item.id));
+      setTakeaways((prev) => prev.filter((item) => !realIds.has(item.id)).map((item) =>
+        sampleIds.has(item.id) ? { ...item, persisted: true, itemId: item.itemId ?? `demo-${item.id}` } : item
+      ));
 
       await refreshBrainItems();
-      setHint(`Saved ${selectedDrafts.length} takeaway(s) to Inspiration memory.`);
+      setHint(`Saved ${realDrafts.length} extracted takeaway(s) to Inspiration memory.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to save selected takeaways.";
       setHint(message);
@@ -1906,7 +1876,9 @@ export default function Page() {
   const openConversation = (conversationId: string) => {
     setActiveConversationId(conversationId);
     setActivePanel("chat");
-    void loadConversationDetail(conversationId);
+    if (conversations.some((conversation) => conversation.id === conversationId && conversation.persisted)) {
+      void loadConversationDetail(conversationId);
+    }
   };
   const visibleTakeawayGroups = builderSourceId
     ? groupedTakeaways.filter((group) => group.podcast.id === builderSourceId)
@@ -2017,7 +1989,7 @@ export default function Page() {
                   <h1 className="text-2xl text-slate-900 md:text-[2rem]" style={{ fontFamily: "var(--font-heading)" }}>
                     {activePanel === "builder" ? "Memory" : activePanel === "inbox" ? "Inbox" : activePanel === "island" ? selectedIsland.label : "Chat"}
                   </h1>
-                  {isDemoMode ? <span className="rounded-full border border-[#6ba5ff]/30 bg-[#e5edf8] px-2.5 py-1 text-[11px] font-semibold text-[#315f69]">Demo</span> : null}
+                  {isDemoMode ? <span className="rounded-full border border-[#6ba5ff]/30 bg-[#e5edf8] px-2.5 py-1 text-[11px] font-semibold text-[#315f69]">{activeConversation?.persisted ? "Live" : "Demo"}</span> : null}
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -2207,6 +2179,15 @@ export default function Page() {
                               <p className="text-sm font-semibold text-slate-900">{podcast.title}</p>
                               <p className="mt-1 text-xs text-[#487881]">{podcast.sourceLabel}</p>
                               <p className="mt-1 line-clamp-1 text-xs text-slate-500">{podcast.url}</p>
+                              {podcast.minuteUrl ? <a href={podcast.minuteUrl} target="_blank" rel="noreferrer" className="mt-2 block text-xs font-semibold text-[#315f69]">Open Feishu Minutes ↗</a> : null}
+                              {podcast.taskId ? (
+                                <details className="mt-2 max-w-2xl text-xs text-slate-600" onToggle={(event) => {
+                                  if (event.currentTarget.open) void loadPodcastTranscript(podcast);
+                                }}>
+                                  <summary className="cursor-pointer font-semibold text-[#315f69]">Transcript</summary>
+                                  <p className="mt-2 max-h-64 overflow-y-auto whitespace-pre-wrap leading-relaxed">{podcast.transcript || "Loading transcript..."}</p>
+                                </details>
+                              ) : null}
                             </div>
                             <button
                               onClick={() => void deletePodcast(podcast.id)}
@@ -2364,8 +2345,38 @@ export default function Page() {
                         : "mr-10 border border-[#dce5e8] bg-white text-slate-900"
                     }`}
                   >
-                    <p className="whitespace-pre-wrap">{message.content}</p>
-                    {message.role === "assistant" && message.contexts && message.contexts.length > 0 ? (
+                    <p className="whitespace-pre-wrap">{message.citations?.length ? message.content.split(/(\[\d+\])/g).map((part, index) => {
+                      const marker = /^\[(\d+)\]$/.exec(part);
+                      const citation = marker ? message.citations?.find((item) => item.number === Number(marker[1])) : undefined;
+                      if (!citation) return <span key={`${message.id}-part-${index}`}>{part}</span>;
+                      return citation.source_url ? (
+                        <a key={`${message.id}-part-${index}`} href={citation.source_url} target="_blank" rel="noopener noreferrer" title={`${citation.source_title}: ${citation.excerpt}`} className="ml-0.5 font-semibold text-[#247c88] underline decoration-[#9bc9ce] underline-offset-2">{part}</a>
+                      ) : (
+                        <button key={`${message.id}-part-${index}`} type="button" title={`${citation.source_title}: ${citation.excerpt}`} onClick={() => {
+                          setBuilderSourceId(podcastIdForTask(citation.task_id));
+                          setActivePanel("builder");
+                        }} className="ml-0.5 font-semibold text-[#247c88] underline decoration-[#9bc9ce] underline-offset-2">{part}</button>
+                      );
+                    }) : message.content}</p>
+                    {message.role === "assistant" && message.citations && message.citations.length > 0 ? (
+                      <details className="mt-3 rounded-[18px] border border-[#dce5e8] bg-white px-3 py-2 text-xs text-slate-600">
+                        <summary className="cursor-pointer font-semibold">Sources ({message.citations.length})</summary>
+                        <ol className="mt-2 space-y-2">
+                          {message.citations.map((citation) => (
+                            <li key={`${message.id}-citation-${citation.memory_id}`}>
+                              <span className="font-semibold">[{citation.number}] {citation.source_title}</span>
+                              <p className="mt-0.5 text-slate-600">Saved takeaway: {citation.excerpt}</p>
+                              {citation.source_url ? <a href={citation.source_url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block font-semibold text-[#247c88] underline">Open source ↗</a> : (
+                                <button type="button" onClick={() => {
+                                  setBuilderSourceId(podcastIdForTask(citation.task_id));
+                                  setActivePanel("builder");
+                                }} className="mt-1 font-semibold text-[#247c88] underline">View saved source →</button>
+                              )}
+                            </li>
+                          ))}
+                        </ol>
+                      </details>
+                    ) : message.role === "assistant" && message.contexts && message.contexts.length > 0 ? (
                       <details className="mt-3 rounded-[18px] border border-[#dce5e8] bg-white px-3 py-2 text-xs text-slate-600">
                         <summary className="cursor-pointer font-semibold">Sources used ({message.contexts.length})</summary>
                         <ul className="mt-2 list-disc space-y-1 pl-4">
@@ -2389,11 +2400,6 @@ export default function Page() {
             {hint ? <p className="mb-3 text-xs text-teal">{hint}</p> : null}
             <div className="rounded-[28px] border border-[#dce5e8] bg-white p-4 shadow-[0_20px_44px_rgba(0,0,0,0.34)]">
               <div className="flex flex-wrap items-center gap-2">
-                <label className="inline-flex cursor-pointer items-center gap-2 rounded-full border border-[#dce5e8] bg-white px-3 py-1.5 text-xs font-semibold text-slate-700">
-                  <ImagePlus className="h-3.5 w-3.5" />
-                  Add image
-                  <input type="file" accept="image/*" className="hidden" onChange={onFileSelect} />
-                </label>
                 {extractUrls(messageInput)[0] ? <span className="inline-flex items-center gap-2 text-xs text-slate-600"><Link2 className="h-3.5 w-3.5" /> Link detected</span> : null}
                 {attachments.length ? <span className="inline-flex items-center gap-2 text-xs text-slate-600"><Paperclip className="h-3.5 w-3.5" /> {attachments.length} attached</span> : null}
               </div>
@@ -2416,7 +2422,10 @@ export default function Page() {
 
               <div className="workspace-composer-input mt-4 grid grid-cols-[minmax(0,1fr)_auto_auto] items-end gap-2">
                 <div className="flex min-w-0 items-end gap-2 rounded-[22px] border border-[#dce5e8] bg-white px-3 py-2">
-                  <MessageSquare className="mb-2 h-4 w-4 shrink-0 text-slate-500" />
+                  <button type="button" title="Attach a file" aria-label="Attach a file" onClick={() => fileInputRef.current?.click()} className="mb-1 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-500 transition hover:bg-[#e8f0f5] hover:text-slate-900">
+                    <Paperclip className="h-4 w-4" />
+                  </button>
+                  <input ref={fileInputRef} type="file" accept=".mp3,.m4a,.wav,.aac,.ogg" className="hidden" onChange={onFileSelect} />
                   <textarea
                     value={messageInput}
                     onChange={(e) => setMessageInput(e.target.value)}

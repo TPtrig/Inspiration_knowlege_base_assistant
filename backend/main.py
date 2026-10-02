@@ -1,18 +1,21 @@
 import asyncio
 import json
+import os
 import random
 import re
+import shutil
 import sqlite3
 import uuid
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
+from dotenv import load_dotenv
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -23,12 +26,17 @@ from prompts import (
     SERENDIPITY_USER_TEMPLATE,
 )
 
+load_dotenv(Path(__file__).with_name(".env"))
+
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=[origin.strip() for origin in os.environ.get(
+        "FRONTEND_ORIGINS",
+        "http://127.0.0.1:3000,http://localhost:3000,http://127.0.0.1:3001,http://localhost:3001",
+    ).split(",") if origin.strip()],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -48,7 +56,6 @@ class ResolveResponse(BaseModel):
 class ProcessRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     url: str
-    openai_api_key: str = Field(alias="openaiApiKey", min_length=1)
     conversation_id: str | None = Field(default=None, alias="conversationId")
 
 
@@ -63,9 +70,12 @@ class TaskStatusResponse(BaseModel):
     success: bool
     task_id: str
     conversation_id: str | None = None
+    input_url: str | None = None
+    created_at: str | None = None
     status: str
     message: str
     audio_url: str | None = None
+    minute_url: str | None = None
     transcript: str | None = None
     title: str | None = None
     summary: str | None = None
@@ -73,11 +83,15 @@ class TaskStatusResponse(BaseModel):
     error: str | None = None
 
 
+class TaskListResponse(BaseModel):
+    success: bool
+    tasks: list[TaskStatusResponse]
+
+
 class SaveBrainRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     task_id: str = Field(alias="taskId", min_length=1)
     takeaways: list[str]
-    openai_api_key: str = Field(alias="openaiApiKey", min_length=1)
 
 
 class SaveBrainResponse(BaseModel):
@@ -94,7 +108,15 @@ class ChatRequest(BaseModel):
     task_id: str | None = Field(default=None, alias="taskId")
     conversation_id: str | None = Field(default=None, alias="conversationId")
     top_k: int = Field(default=4, alias="topK", ge=1, le=8)
-    openai_api_key: str = Field(alias="openaiApiKey", min_length=1)
+
+
+class ChatCitation(BaseModel):
+    number: int
+    memory_id: str
+    task_id: str
+    source_title: str
+    source_url: str | None = None
+    excerpt: str
 
 
 class ChatResponse(BaseModel):
@@ -102,6 +124,7 @@ class ChatResponse(BaseModel):
     answer: str
     contexts: list[str]
     context_count: int
+    citations: list[ChatCitation] = Field(default_factory=list)
 
 
 class ParseMediaRequest(BaseModel):
@@ -183,6 +206,7 @@ class ConversationMessage(BaseModel):
     role: str
     content: str
     created_at: str
+    citations: list[ChatCitation] = Field(default_factory=list)
 
 
 class ConversationCreateResponse(BaseModel):
@@ -237,7 +261,11 @@ class BrainItemUpdateResponse(BaseModel):
     item: BrainItemResponse
 
 
-XIAOYUZHOU_HOST_KEYWORDS = ("xiaoyuzhou", "xyzcdn", "xiaoyuzhoufm")
+XIAOYUZHOU_HOSTS = {"xiaoyuzhoufm.com", "www.xiaoyuzhoufm.com", "web.xiaoyuzhoufm.com"}
+XIAOYUZHOU_AUDIO_HOSTS = {*XIAOYUZHOU_HOSTS, "xyzcdn.net"}
+ALLOWED_AUDIO_EXTENSIONS = {".mp3", ".m4a", ".wav", ".aac", ".ogg"}
+MAX_AUDIO_BYTES = 500 * 1024 * 1024
+OPENAI_AUDIO_BYTES = 25 * 1024 * 1024
 LEGACY_DB_PATH = Path("./podbrain.db")
 DB_PATH = Path("./inspiration.db") if not LEGACY_DB_PATH.exists() else LEGACY_DB_PATH
 AUDIO_DIR = Path("./tmp_audio")
@@ -328,6 +356,7 @@ def init_db() -> None:
             """
         )
         ensure_column(conn, "tasks", "conversation_id TEXT", "conversation_id")
+        ensure_column(conn, "tasks", "minute_url TEXT", "minute_url")
 
         conn.execute(
             """
@@ -352,6 +381,7 @@ def init_db() -> None:
             )
             """
         )
+        ensure_column(conn, "conversation_messages", "citations_json TEXT", "citations_json")
 
         conn.execute(
             """
@@ -434,6 +464,7 @@ def update_task(
     summary: str | None = None,
     takeaways: list[str] | None = None,
     error: str | None = None,
+    minute_url: str | None = None,
 ) -> None:
     fields: list[str] = []
     values: list[object] = []
@@ -458,6 +489,9 @@ def update_task(
     if error is not None:
         fields.append("error = ?")
         values.append(error)
+    if minute_url is not None:
+        fields.append("minute_url = ?")
+        values.append(minute_url)
 
     fields.append("updated_at = ?")
     values.append(utc_now_iso())
@@ -543,7 +577,7 @@ def list_conversation_messages(conversation_id: str) -> list[ConversationMessage
     with get_db_conn() as conn:
         rows = conn.execute(
             """
-            SELECT id, role, content, created_at
+            SELECT id, role, content, created_at, citations_json
             FROM conversation_messages
             WHERE conversation_id = ?
             ORDER BY created_at ASC
@@ -551,7 +585,10 @@ def list_conversation_messages(conversation_id: str) -> list[ConversationMessage
             (conversation_id,),
         ).fetchall()
     return [
-        ConversationMessage(id=row["id"], role=row["role"], content=row["content"], created_at=row["created_at"])
+        ConversationMessage(
+            id=row["id"], role=row["role"], content=row["content"], created_at=row["created_at"],
+            citations=json.loads(row["citations_json"] or "[]"),
+        )
         for row in rows
     ]
 
@@ -578,7 +615,9 @@ def refresh_conversation_title(conversation_id: str) -> None:
             conn.commit()
 
 
-def add_conversation_message(conversation_id: str, role: str, content: str) -> ConversationMessage:
+def add_conversation_message(
+    conversation_id: str, role: str, content: str, citations: list[ChatCitation] | None = None
+) -> ConversationMessage:
     if role not in {"user", "assistant"}:
         raise HTTPException(status_code=400, detail="Invalid role")
     content = content.strip()
@@ -591,16 +630,16 @@ def add_conversation_message(conversation_id: str, role: str, content: str) -> C
     with get_db_conn() as conn:
         conn.execute(
             """
-            INSERT INTO conversation_messages (id, conversation_id, role, content, created_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO conversation_messages (id, conversation_id, role, content, created_at, citations_json)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (message_id, conversation_id, role, content, now),
+            (message_id, conversation_id, role, content, now, json.dumps([c.model_dump() for c in citations or []])),
         )
         conn.execute("UPDATE conversations SET updated_at = ? WHERE id = ?", (now, conversation_id))
         conn.commit()
 
     refresh_conversation_title(conversation_id)
-    return ConversationMessage(id=message_id, role=role, content=content, created_at=now)
+    return ConversationMessage(id=message_id, role=role, content=content, created_at=now, citations=citations or [])
 
 
 def set_conversation_title_if_default(conversation_id: str, candidate_title: str | None) -> None:
@@ -657,8 +696,11 @@ def normalize_takeaways(raw_takeaways: object) -> list[str]:
     return normalized[:20]
 
 
-def normalize_api_key(raw_api_key: str) -> str:
-    return raw_api_key.strip()
+def require_openai_api_key() -> str:
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        raise HTTPException(status_code=503, detail="OpenAI API key is not configured on the backend. Set OPENAI_API_KEY in backend/.env and restart the backend.")
+    return api_key
 
 
 def get_chroma_collection():
@@ -759,7 +801,7 @@ def get_enabled_brain_item_ids(task_id: str | None = None) -> set[str]:
     return {row["id"] for row in rows}
 
 
-def query_chroma_contexts(query_embedding: list[float], task_id: str | None, top_k: int) -> list[str]:
+def query_chroma_contexts(query_embedding: list[float], task_id: str | None, top_k: int) -> list[ChatCitation]:
     collection = get_chroma_collection()
     if collection.count() <= 0:
         return []
@@ -778,16 +820,38 @@ def query_chroma_contexts(query_embedding: list[float], task_id: str | None, top
     if not docs or not docs[0] or not metadatas or not metadatas[0]:
         return []
 
-    normalized: list[str] = []
+    candidate_ids: list[str] = []
     for doc, meta in zip(docs[0], metadatas[0]):
         brain_item_id = (meta or {}).get("brain_item_id")
         if brain_item_id not in enabled_ids:
             continue
         if isinstance(doc, str) and doc.strip():
-            normalized.append(doc.strip())
-        if len(normalized) >= top_k:
+            candidate_ids.append(brain_item_id)
+        if len(candidate_ids) >= top_k:
             break
-    return normalized
+    if not candidate_ids:
+        return []
+    placeholders = ",".join("?" for _ in candidate_ids)
+    with get_db_conn() as conn:
+        rows = conn.execute(
+            f"SELECT id, task_id, podcast_title, podcast_url, text FROM brain_items "
+            f"WHERE id IN ({placeholders}) AND enabled = 1 AND deleted = 0",
+            candidate_ids,
+        ).fetchall()
+    by_id = {row["id"]: row for row in rows}
+    citations: list[ChatCitation] = []
+    for item_id in candidate_ids:
+        row = by_id.get(item_id)
+        if not row:
+            continue
+        source_url = row["podcast_url"]
+        if urlparse(source_url).scheme not in {"http", "https"}:
+            source_url = None
+        citations.append(ChatCitation(
+            number=len(citations) + 1, memory_id=row["id"], task_id=row["task_id"],
+            source_title=row["podcast_title"], source_url=source_url, excerpt=row["text"],
+        ))
+    return citations
 
 
 def save_brain_items(
@@ -1241,21 +1305,29 @@ async def auto_cluster_scheduler() -> None:
         await asyncio.sleep(AUTO_CLUSTER_LOOP_INTERVAL_SECONDS)
 
 
-async def generate_rag_answer(question: str, contexts: list[str], api_key: str) -> str:
+async def generate_rag_answer(
+    question: str, contexts: list[ChatCitation], api_key: str
+) -> tuple[str, list[ChatCitation]]:
+    unknown = "I don't know based on your saved takeaways."
     if not contexts:
-        return "I don't know based on your saved takeaways."
+        return unknown, []
 
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    context_block = "\n\n".join([f"[{i + 1}] {c}" for i, c in enumerate(contexts)])
+    context_block = "\n\n".join(
+        f"[{c.number}] Source: {c.source_title}\nSaved takeaway: {c.excerpt}" for c in contexts
+    )
     system_prompt = (
-        "You are Inspiration. Answer ONLY from provided context. "
-        "If context does not contain the answer, respond: "
-        "\"I don't know based on your saved takeaways.\" "
-        "Do not use external knowledge."
+        "You are Inspiration. Answer ONLY from the supplied saved takeaways. "
+        "Return a JSON object with a single string field named answer. "
+        "Put a citation marker like [1] immediately after every factual claim, using only the numbered "
+        "takeaways supplied below. Attribute opinions and predictions to their source rather than "
+        "presenting them as verified facts. Do not invent quotations, timestamps, or sources. "
+        f"If the takeaways do not support an answer, set answer to: {unknown}"
     )
     body = {
         "model": "gpt-4o-mini",
         "temperature": 0.1,
+        "response_format": {"type": "json_object"},
         "messages": [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"Context:\n{context_block}\n\nQuestion:\n{question.strip()}"},
@@ -1268,29 +1340,76 @@ async def generate_rag_answer(question: str, contexts: list[str], api_key: str) 
         payload = resp.json()
 
     content = payload.get("choices", [{}])[0].get("message", {}).get("content", "")
-    if not isinstance(content, str) or not content.strip():
-        return "I don't know based on your saved takeaways."
-    return content.strip()
+    try:
+        answer = json.loads(content).get("answer") if isinstance(content, str) else None
+    except (json.JSONDecodeError, AttributeError):
+        answer = None
+    if not isinstance(answer, str) or not answer.strip():
+        return unknown, []
+    answer = answer.strip()
+    referenced_numbers = {int(value) for value in re.findall(r"\[(\d+)\]", answer)}
+    allowed_numbers = {c.number for c in contexts}
+    if not referenced_numbers or not referenced_numbers.issubset(allowed_numbers):
+        return unknown, []
+    return answer, [c for c in contexts if c.number in referenced_numbers]
 
 
 async def download_audio(audio_url: str, task_id: str) -> str:
-    target = AUDIO_DIR / f"{task_id}.mp3"
+    extension = Path(urlparse(audio_url).path).suffix.lower()
+    target = AUDIO_DIR / f"{task_id}{extension}"
     timeout = httpx.Timeout(120.0, connect=30.0)
-    async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
-        async with client.stream("GET", audio_url) as resp:
-            resp.raise_for_status()
-            with target.open("wb") as f:
-                async for chunk in resp.aiter_bytes():
-                    if chunk:
-                        f.write(chunk)
+    if not is_allowed_audio_url(audio_url):
+        raise RuntimeError("The episode audio is not hosted on a supported Xiaoyuzhou audio domain.")
+    try:
+        async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
+            for _ in range(6):
+                async with client.stream("GET", audio_url) as resp:
+                    if resp.status_code in {301, 302, 303, 307, 308}:
+                        next_url = urljoin(audio_url, resp.headers.get("location", ""))
+                        if not is_allowed_audio_url(next_url):
+                            raise RuntimeError("The episode audio redirected to an unsupported domain.")
+                        audio_url = next_url
+                        continue
+                    resp.raise_for_status()
+                    final_extension = Path(urlparse(audio_url).path).suffix.lower()
+                    if final_extension not in ALLOWED_AUDIO_EXTENSIONS:
+                        raise RuntimeError("The episode redirected to an unsupported audio format.")
+                    target = AUDIO_DIR / f"{task_id}{final_extension}"
+                    if resp.headers.get("content-type", "").lower().startswith("text/html"):
+                        raise RuntimeError("The episode page did not provide an audio file.")
+                    content_length = resp.headers.get("content-length")
+                    if content_length and content_length.isdigit() and int(content_length) > MAX_AUDIO_BYTES:
+                        raise RuntimeError("Episode audio exceeds the 500 MB import limit.")
+                    total = 0
+                    with target.open("wb") as f:
+                        async for chunk in resp.aiter_bytes():
+                            if chunk:
+                                total += len(chunk)
+                                if total > MAX_AUDIO_BYTES:
+                                    raise RuntimeError("Episode audio exceeds the 500 MB import limit.")
+                                f.write(chunk)
+                    break
+            else:
+                raise RuntimeError("Too many episode audio redirects.")
+    except Exception:
+        target.unlink(missing_ok=True)
+        raise
+    if not target.exists() or target.stat().st_size == 0:
+        raise RuntimeError("Downloaded episode audio is empty.")
     return str(target)
 
 
 async def transcribe_with_whisper(audio_path: str, api_key: str) -> str:
+    if Path(audio_path).stat().st_size > OPENAI_AUDIO_BYTES:
+        raise RuntimeError("This audio is over OpenAI's 25 MB transcription limit. Configure PODCAST_TRANSCRIBER=feishu for longer episodes.")
     headers = {"Authorization": f"Bearer {api_key}"}
     timeout = httpx.Timeout(600.0, connect=30.0)
     with open(audio_path, "rb") as f:
-        files = {"file": (Path(audio_path).name, f, "audio/mpeg")}
+        mime = {
+            ".mp3": "audio/mpeg", ".m4a": "audio/mp4", ".wav": "audio/wav",
+            ".aac": "audio/aac", ".ogg": "audio/ogg",
+        }.get(Path(audio_path).suffix.lower(), "application/octet-stream")
+        files = {"file": (Path(audio_path).name, f, mime)}
         data = {"model": "whisper-1", "response_format": "verbose_json"}
         async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(
@@ -1308,12 +1427,105 @@ async def transcribe_with_whisper(audio_path: str, api_key: str) -> str:
     return text.strip()
 
 
+def nested_string(payload: Any, key: str) -> str | None:
+    if isinstance(payload, dict):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        for child in payload.values():
+            found = nested_string(child, key)
+            if found:
+                return found
+    elif isinstance(payload, list):
+        for child in payload:
+            found = nested_string(child, key)
+            if found:
+                return found
+    return None
+
+
+async def run_lark_cli(*args: str, timeout_seconds: int = 1200) -> Any:
+    cli = os.environ.get("LARK_CLI_PATH") or shutil.which("lark-cli")
+    if not cli:
+        raise RuntimeError("Feishu transcription needs lark-cli installed and logged in.")
+    process = await asyncio.create_subprocess_exec(
+        cli, *args, "--json", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+    try:
+        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout_seconds)
+    except asyncio.TimeoutError:
+        process.kill()
+        await process.communicate()
+        raise RuntimeError("Feishu transcription timed out.") from None
+    if process.returncode != 0:
+        detail = stderr.decode("utf-8", "replace").strip() or stdout.decode("utf-8", "replace").strip()
+        raise RuntimeError(f"Feishu CLI failed: {detail[:600]}")
+    try:
+        payload = json.loads(stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("Feishu CLI returned an unreadable response.") from exc
+    if isinstance(payload, dict) and payload.get("ok") is False:
+        error = payload.get("error") or {}
+        message = error.get("message", "Feishu CLI request failed") if isinstance(error, dict) else str(error)
+        raise RuntimeError(f"Feishu CLI failed: {message[:600]}")
+    return payload
+
+
+async def transcribe_with_feishu(audio_path: str, task_id: str) -> tuple[str, str]:
+    update_task(task_id, message="Uploading audio to Feishu...")
+    uploaded = await run_lark_cli("drive", "+upload", "--file", audio_path)
+    file_token = nested_string(uploaded, "file_token")
+    if not file_token:
+        raise RuntimeError("Feishu Drive did not return a file token.")
+    minute = await run_lark_cli("minutes", "+upload", "--file-token", file_token)
+    minute_url = nested_string(minute, "minute_url")
+    minute_token = nested_string(minute, "minute_token")
+    if not minute_token and minute_url:
+        minute_token = urlparse(minute_url).path.rstrip("/").split("/")[-1]
+    if not minute_url or not minute_token:
+        raise RuntimeError("Feishu Minutes did not return a usable minute link.")
+    update_task(task_id, minute_url=minute_url, message="Waiting for Feishu transcript...")
+    output_dir = AUDIO_DIR / f"{task_id}-minutes"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    detail = await run_lark_cli(
+        "minutes", "+detail", "--minute-tokens", minute_token,
+        "--transcript", "--wait-ready", "--wait-timeout-seconds", "3600",
+        "--output-dir", str(output_dir), timeout_seconds=3700,
+    )
+    transcript_file = nested_string(detail, "transcript_file")
+    if not transcript_file:
+        raise RuntimeError("Feishu Minutes completed without a transcript file.")
+    transcript_path = Path(transcript_file).resolve()
+    if not transcript_path.is_relative_to(output_dir.resolve()):
+        raise RuntimeError("Feishu Minutes returned an unexpected transcript path.")
+    transcript = transcript_path.read_text(encoding="utf-8").strip()
+    if not transcript:
+        raise RuntimeError("Feishu Minutes returned an empty transcript.")
+    shutil.rmtree(output_dir, ignore_errors=True)
+    return transcript, minute_url
+
+
+async def transcribe_podcast(audio_path: str, task_id: str, api_key: str) -> str:
+    provider = os.environ.get("PODCAST_TRANSCRIBER", "auto").strip().lower()
+    if provider not in {"auto", "feishu", "openai"}:
+        raise RuntimeError("PODCAST_TRANSCRIBER must be auto, feishu, or openai.")
+    needs_feishu = Path(audio_path).stat().st_size > OPENAI_AUDIO_BYTES or Path(audio_path).suffix.lower() == ".aac"
+    if provider == "feishu" or (provider == "auto" and needs_feishu):
+        transcript, _ = await transcribe_with_feishu(audio_path, task_id)
+        return transcript
+    if provider == "openai" and Path(audio_path).suffix.lower() == ".aac":
+        raise RuntimeError("AAC files need Feishu transcription. Use PODCAST_TRANSCRIBER=feishu or auto.")
+    return await transcribe_with_whisper(audio_path, api_key)
+
+
 async def extract_insights(transcript: str, api_key: str) -> tuple[str, str, list[str]]:
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
     system_prompt = (
-        "You extract concise podcast insights. Return strict JSON only. "
+        "Extract podcast insights only from the supplied transcript. Return strict JSON only. "
         'Schema: {"title": string, "summary": string, "takeaways": string[]}. '
-        "Takeaways should be clear, non-redundant, and actionable."
+        "Use the transcript's language. Keep takeaways concise and non-redundant. "
+        "Do not invent facts, quotations, names, numbers, or conclusions. "
+        "If speakers express an opinion or prediction, label it as their view rather than established fact."
     )
     user_prompt = f"Transcript:\n{transcript[:120000]}"
     body = {
@@ -1347,14 +1559,17 @@ async def extract_insights(transcript: str, api_key: str) -> tuple[str, str, lis
     return title.strip(), summary.strip(), takeaways
 
 
-async def run_pipeline_task(task_id: str, audio_url: str, api_key: str) -> None:
-    audio_path: str | None = None
+async def run_pipeline_task(task_id: str, audio_url: str | None, api_key: str, uploaded_path: str | None = None) -> None:
+    audio_path: str | None = uploaded_path
     try:
-        update_task(task_id, status=STATUS_DOWNLOADING, message="Downloading Audio...")
-        audio_path = await download_audio(audio_url, task_id)
+        if audio_url:
+            update_task(task_id, status=STATUS_DOWNLOADING, message="Downloading episode audio...")
+            audio_path = await download_audio(audio_url, task_id)
+        if not audio_path:
+            raise RuntimeError("No podcast audio was supplied.")
 
         update_task(task_id, status=STATUS_TRANSCRIBING, message="Transcribing...")
-        transcript = await transcribe_with_whisper(audio_path, api_key)
+        transcript = await transcribe_podcast(audio_path, task_id, api_key)
 
         update_task(task_id, status=STATUS_EXTRACTING, message="Extracting Insights...", transcript=transcript)
         title, summary, takeaways = await extract_insights(transcript, api_key)
@@ -1384,6 +1599,7 @@ async def run_pipeline_task(task_id: str, audio_url: str, api_key: str) -> None:
                 Path(audio_path).unlink(missing_ok=True)
             except Exception:
                 pass
+        shutil.rmtree(AUDIO_DIR / f"{task_id}-minutes", ignore_errors=True)
 
 
 @app.on_event("startup")
@@ -1401,18 +1617,33 @@ init_db()
 
 
 async def fetch_html(url: str) -> str | None:
+    if not is_xiaoyuzhou_url(url):
+        return None
     headers = {
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
     }
     timeout = httpx.Timeout(10.0, connect=10.0)
-    async with httpx.AsyncClient(follow_redirects=True, timeout=timeout, headers=headers) as client:
-        try:
-            resp = await client.get(url)
-            if resp.status_code == 200:
-                return resp.text
-            return None
-        except Exception:
-            return None
+    try:
+        async with httpx.AsyncClient(follow_redirects=False, timeout=timeout, headers=headers) as client:
+            for _ in range(5):
+                async with client.stream("GET", url) as resp:
+                    if resp.status_code in {301, 302, 303, 307, 308}:
+                        next_url = urljoin(url, resp.headers.get("location", ""))
+                        if not is_xiaoyuzhou_url(next_url):
+                            return None
+                        url = next_url
+                        continue
+                    if resp.status_code != 200:
+                        return None
+                    content = bytearray()
+                    async for chunk in resp.aiter_bytes():
+                        content.extend(chunk)
+                        if len(content) > 2 * 1024 * 1024:
+                            return None
+                    return content.decode("utf-8", "replace")
+    except httpx.HTTPError:
+        return None
+    return None
 
 
 def pick_first_valid(*values: str | None) -> str | None:
@@ -1422,22 +1653,33 @@ def pick_first_valid(*values: str | None) -> str | None:
     return None
 
 
-def is_mp3_url(url: str) -> bool:
-    if not url:
-        return False
-    u = url.lower()
-    if ".mp3" in u:
-        return True
-    return False
+def is_supported_episode_audio_url(url: str) -> bool:
+    parsed = urlparse(url)
+    return parsed.scheme == "https" and Path(parsed.path).suffix.lower() in ALLOWED_AUDIO_EXTENSIONS
 
 
 def is_xiaoyuzhou_url(url: str) -> bool:
     try:
-        hostname = urlparse(url).hostname or ""
+        parsed = urlparse(url)
     except Exception:
         return False
-    hostname = hostname.lower()
-    return any(keyword in hostname for keyword in XIAOYUZHOU_HOST_KEYWORDS)
+    return (
+        parsed.scheme == "https"
+        and (parsed.hostname or "").lower() in XIAOYUZHOU_HOSTS
+        and parsed.path.startswith("/episode/")
+        and bool(parsed.path.split("/")[2])
+    )
+
+
+def is_allowed_audio_url(url: str) -> bool:
+    try:
+        parsed = urlparse(url)
+        hostname = (parsed.hostname or "").lower()
+    except Exception:
+        return False
+    return parsed.scheme == "https" and (
+        hostname in XIAOYUZHOU_AUDIO_HOSTS or hostname.endswith(".xyzcdn.net")
+    )
 
 
 def extract_from_meta(soup: BeautifulSoup) -> str | None:
@@ -1465,9 +1707,9 @@ def extract_from_audio_tag(soup: BeautifulSoup) -> str | None:
 
 def extract_from_inline_json(html: str) -> str | None:
     patterns = [
-        r'"audio"\s*:\s*"(?P<u>https?://[^"]+\.mp3[^"]*)"',
-        r'"src"\s*:\s*"(?P<u>https?://[^"]+\.mp3[^"]*)"',
-        r'content="(?P<u>https?://[^"]+\.mp3[^"]*)"',
+        r'"audio"\s*:\s*"(?P<u>https?://[^"]+\.(?:mp3|m4a|wav|aac|ogg)[^"]*)"',
+        r'"src"\s*:\s*"(?P<u>https?://[^"]+\.(?:mp3|m4a|wav|aac|ogg)[^"]*)"',
+        r'content="(?P<u>https?://[^"]+\.(?:mp3|m4a|wav|aac|ogg)[^"]*)"',
     ]
     for pat in patterns:
         m = re.search(pat, html, flags=re.IGNORECASE)
@@ -1479,29 +1721,27 @@ def extract_from_inline_json(html: str) -> str | None:
 
 
 async def resolve_audio_url(input_url: str) -> tuple[bool, str | None, str | None, str | None]:
-    if is_mp3_url(input_url):
-        return True, input_url, "direct", None
+    if not is_xiaoyuzhou_url(input_url):
+        return False, None, None, "For now, podcast links must be Xiaoyuzhou episode URLs. You can also upload an audio file."
 
     html = await fetch_html(input_url)
     if not html:
-        return False, None, None, "Failed to load page. Please provide a direct .mp3 URL."
+        return False, None, None, "Could not load this Xiaoyuzhou episode. Try uploading its audio file."
 
     soup = BeautifulSoup(html, "html.parser")
-    meta_url = extract_from_meta(soup)
-    if meta_url and is_mp3_url(meta_url):
-        if is_xiaoyuzhou_url(input_url):
-            return True, meta_url, "xiaoyuzhou:og:audio", None
-        return True, meta_url, "meta", None
+    meta_url = urljoin(input_url, extract_from_meta(soup) or "")
+    if is_supported_episode_audio_url(meta_url) and is_allowed_audio_url(meta_url):
+        return True, meta_url, "xiaoyuzhou:og:audio", None
 
-    tag_url = extract_from_audio_tag(soup)
-    if tag_url and is_mp3_url(tag_url):
+    tag_url = urljoin(input_url, extract_from_audio_tag(soup) or "")
+    if is_supported_episode_audio_url(tag_url) and is_allowed_audio_url(tag_url):
         return True, tag_url, "audio_tag", None
 
-    json_url = extract_from_inline_json(html)
-    if json_url and is_mp3_url(json_url):
+    json_url = urljoin(input_url, extract_from_inline_json(html) or "")
+    if is_supported_episode_audio_url(json_url) and is_allowed_audio_url(json_url):
         return True, json_url, "inline_json", None
 
-    return False, None, None, "No audio link found. Please provide a direct .mp3 URL."
+    return False, None, None, "No supported audio was found on this Xiaoyuzhou episode. Try uploading its audio file."
 
 
 @app.post("/api/resolve-audio", response_model=ResolveResponse)
@@ -1577,9 +1817,7 @@ async def add_conversation_message_endpoint(conversation_id: str, payload: Conve
 
 @app.post("/api/process", response_model=ProcessResponse)
 async def create_process_task(payload: ProcessRequest, background_tasks: BackgroundTasks):
-    api_key = payload.openai_api_key.strip()
-    if not api_key:
-        raise HTTPException(status_code=400, detail="OpenAI API key is required")
+    api_key = require_openai_api_key()
 
     conversation_id = payload.conversation_id.strip() if payload.conversation_id else None
     if conversation_id:
@@ -1591,29 +1829,67 @@ async def create_process_task(payload: ProcessRequest, background_tasks: Backgro
 
     task_id = str(uuid.uuid4())
     create_task(task_id, payload.url, audio_url, source or "unknown", conversation_id=conversation_id)
-    # BYOK: key is passed only to this in-memory background task and never persisted.
     background_tasks.add_task(run_pipeline_task, task_id, audio_url, api_key)
     return ProcessResponse(success=True, task_id=task_id, status=STATUS_QUEUED, message="Queued...")
 
 
-@app.get("/api/tasks/{task_id}", response_model=TaskStatusResponse)
-async def get_task_status(task_id: str):
-    row = get_task_or_404(task_id)
+@app.post("/api/process/upload", response_model=ProcessResponse)
+async def create_upload_task(
+    background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
+    conversation_id: str | None = Form(default=None, alias="conversationId"),
+):
+    api_key = require_openai_api_key()
+    resolved_conversation_id = conversation_id.strip() if conversation_id else None
+    if resolved_conversation_id:
+        get_conversation_or_404(resolved_conversation_id)
+    filename = Path(file.filename or "").name
+    extension = Path(filename).suffix.lower()
+    if extension not in ALLOWED_AUDIO_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Upload an MP3, M4A, WAV, AAC, or OGG audio file.")
+    task_id = str(uuid.uuid4())
+    target = AUDIO_DIR / f"{task_id}{extension}"
+    total = 0
+    try:
+        with target.open("wb") as output:
+            while chunk := await file.read(1024 * 1024):
+                total += len(chunk)
+                if total > MAX_AUDIO_BYTES:
+                    raise HTTPException(status_code=413, detail="Audio files must be 500 MB or smaller.")
+                output.write(chunk)
+        if total == 0:
+            raise HTTPException(status_code=400, detail="The uploaded audio file is empty.")
+    except Exception:
+        target.unlink(missing_ok=True)
+        raise
+    finally:
+        await file.close()
+    create_task(
+        task_id, f"upload://{task_id}/{filename}", None, "uploaded_audio",
+        conversation_id=resolved_conversation_id,
+    )
+    background_tasks.add_task(run_pipeline_task, task_id, None, api_key, str(target))
+    return ProcessResponse(success=True, task_id=task_id, status=STATUS_QUEUED, message="Queued...")
+
+
+def task_status_from_row(row: sqlite3.Row, include_transcript: bool = True) -> TaskStatusResponse:
     takeaways: list[str] | None = None
     if row["takeaways_json"]:
         try:
             takeaways = normalize_takeaways(json.loads(row["takeaways_json"]))
         except Exception:
             takeaways = []
-
     return TaskStatusResponse(
         success=True,
         task_id=row["id"],
         conversation_id=row["conversation_id"],
+        input_url=row["input_url"],
+        created_at=row["created_at"],
         status=row["status"],
         message=row["message"],
         audio_url=row["audio_url"],
-        transcript=row["transcript"],
+        minute_url=row["minute_url"],
+        transcript=row["transcript"] if include_transcript else None,
         title=row["title"],
         summary=row["summary"],
         takeaways=takeaways,
@@ -1621,12 +1897,22 @@ async def get_task_status(task_id: str):
     )
 
 
+@app.get("/api/tasks", response_model=TaskListResponse)
+async def list_tasks_endpoint():
+    with get_db_conn() as conn:
+        rows = conn.execute("SELECT * FROM tasks ORDER BY created_at DESC LIMIT 100").fetchall()
+    return TaskListResponse(success=True, tasks=[task_status_from_row(row, include_transcript=False) for row in rows])
+
+
+@app.get("/api/tasks/{task_id}", response_model=TaskStatusResponse)
+async def get_task_status(task_id: str):
+    return task_status_from_row(get_task_or_404(task_id))
+
+
 @app.post("/api/brain/save", response_model=SaveBrainResponse)
 async def save_selected_takeaways(payload: SaveBrainRequest):
     task_id = payload.task_id.strip()
-    api_key = normalize_api_key(payload.openai_api_key)
-    if not api_key:
-        raise HTTPException(status_code=400, detail="OpenAI API key is required")
+    api_key = require_openai_api_key()
 
     task_row = get_task_or_404(task_id)
     if task_row["status"] != STATUS_COMPLETED:
@@ -1676,9 +1962,7 @@ async def delete_brain_item_endpoint(item_id: str):
 
 @app.post("/api/chat", response_model=ChatResponse)
 async def chat_with_brain(payload: ChatRequest):
-    api_key = normalize_api_key(payload.openai_api_key)
-    if not api_key:
-        raise HTTPException(status_code=400, detail="OpenAI API key is required")
+    api_key = require_openai_api_key()
 
     task_id = payload.task_id.strip() if payload.task_id else None
     if task_id:
@@ -1695,14 +1979,17 @@ async def chat_with_brain(payload: ChatRequest):
     try:
         question_embedding = (await create_embeddings([question], api_key))[0]
         contexts = query_chroma_contexts(question_embedding, task_id, payload.top_k)
-        answer = await generate_rag_answer(question, contexts, api_key)
+        answer, citations = await generate_rag_answer(question, contexts, api_key)
         if conversation_id:
             add_conversation_message(conversation_id, "user", question)
-            add_conversation_message(conversation_id, "assistant", answer)
+            add_conversation_message(conversation_id, "assistant", answer, citations)
     except Exception as ex:
         raise HTTPException(status_code=500, detail=f"Chat request failed: {ex}") from ex
 
-    return ChatResponse(success=True, answer=answer, contexts=contexts, context_count=len(contexts))
+    return ChatResponse(
+        success=True, answer=answer, contexts=[c.excerpt for c in citations],
+        context_count=len(citations), citations=citations,
+    )
 
 
 @app.post("/api/serendipity_hint", response_model=SerendipityHintResponse)
