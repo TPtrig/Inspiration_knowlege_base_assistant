@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Check, Compass, Layers3, MessageCircle, Sparkles, Waves } from "lucide-react";
 import CoastalDepthBackground from "./coastal-depth-background";
+import LandingMotion from "./landing-motion";
 import styles from "./landing.module.css";
 
 export const metadata: Metadata = {
@@ -17,13 +18,19 @@ const mapTopics = [
   { name: "LLM Models", className: styles.models }
 ];
 
+function ReadingWords({ text }: { text: string }) {
+  return text.split(" ").map((word, index) => (
+    <span key={`${word}-${index}`}><span className={styles.readingWord}>{word}</span>{" "}</span>
+  ));
+}
+
 function IslandMap({ compact = false }: { compact?: boolean }) {
   return (
     <div className={`${styles.islandMap} ${compact ? styles.compactMap : ""}`} role="img" aria-label="Four knowledge topics shown as islands, with stronger and weaker connections between them">
       <svg className={styles.mapLines} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-        <path className={styles.relatedLine} d="M 29 21 C 39 31, 45 31, 55 24" />
-        <path className={styles.relatedLine} d="M 61 37 C 56 45, 51 51, 44 59" />
-        <path className={styles.strongLine} d="M 46 75 C 53 68, 58 69, 65 75" />
+        <path className={styles.relatedLine} pathLength={1} d="M 29 21 C 39 31, 45 31, 55 24" />
+        <path className={styles.relatedLine} pathLength={1} d="M 61 37 C 56 45, 51 51, 44 59" />
+        <path className={styles.strongLine} pathLength={1} d="M 46 75 C 53 68, 58 69, 65 75" />
         <path className={styles.weakLine} d="M 18 30 C 18 39, 22 45, 27 52" />
       </svg>
       {mapTopics.map((topic) => (
@@ -110,7 +117,8 @@ function InsightMeteorVisual() {
 
 export default function Home() {
   return (
-    <main className={styles.page}>
+    <main className={styles.page} data-landing-motion-root>
+      <LandingMotion />
       <CoastalDepthBackground />
       <header className={styles.header}>
         <div className={styles.headerInner}>
@@ -153,7 +161,7 @@ export default function Home() {
 
       <section id="how-it-works" className={styles.processSection} aria-labelledby="process-title">
         <div className={styles.sectionHeading}>
-          <div><span className={styles.sectionKicker}>THE PRODUCT LOOP</span><h2 id="process-title">From passing thought<br />to lasting insight.</h2></div>
+          <div><span className={styles.sectionKicker}>THE PRODUCT LOOP</span><h2 id="process-title" data-reading><ReadingWords text="From passing thought" /><br /><ReadingWords text="to lasting insight." /></h2></div>
           <p>Choose where ideas come from, select what is worth keeping, and ask from your own knowledge base.</p>
         </div>
         <div className={styles.processGrid}>
@@ -195,7 +203,7 @@ export default function Home() {
         <div className={styles.connectionsInner}>
           <div className={styles.connectionsCopy}>
             <span className={styles.sectionKicker}>THE INSPIRATION DIFFERENCE</span>
-            <h2 id="connections-title">A knowledge base<br />with a <em>point of view.</em></h2>
+            <h2 id="connections-title" data-reading><ReadingWords text="A knowledge base" /><br /><ReadingWords text="with a" /><em><ReadingWords text="point of view." /></em></h2>
             <p>The ideas you select become your own reference library. Each island gathers a topic; the paths show where ideas from different sources connect.</p>
             <div className={styles.connectionExample}><span className={styles.exampleIcon}><Sparkles size={18} /></span><div><strong>One concrete example</strong><p>AI infrastructure and LLM models share a strong link. Finance and AI infrastructure have a weaker one. Open a topic to see its chats and saved ideas.</p></div></div>
             <Link className={styles.inlineLink} href="/workspace">Explore the example map <ArrowUpRight size={17} /></Link>
@@ -209,7 +217,7 @@ export default function Home() {
       <section className={styles.closingSection} aria-labelledby="closing-title">
         <div className={styles.closingArt} aria-hidden="true"><span className={styles.closingIsland} /><span className={styles.closingIsland} /><span className={styles.closingIsland} /><span className={styles.closingPath} /></div>
         <span className={styles.sectionKicker}>MAKE ROOM FOR THE NEXT IDEA</span>
-        <h2 id="closing-title">What you keep today can<br /><em>connect tomorrow.</em></h2>
+        <h2 id="closing-title" data-reading><ReadingWords text="What you keep today can" /><br /><em><ReadingWords text="connect tomorrow." /></em></h2>
         <p>Take a look inside Inspiration with a ready-made example workspace.</p>
         <Link className={styles.primaryButton} href="/workspace">Open the workspace <ArrowUpRight size={18} /></Link>
       </section>
