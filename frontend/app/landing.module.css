@@ -258,3 +258,21 @@
   .insightRing { opacity: .45; }
   .insightCaption { transform: translateX(-50%); }
 }
+
+/* Scroll interactions enhance the original composition without changing its layout. */
+:global(html):has(.page) { scroll-behavior: smooth; }
+.revealTarget { transition: opacity .75s ease, translate .85s cubic-bezier(.2, .7, .2, 1); transition-delay: var(--reveal-delay, 0ms); }
+.revealPending { opacity: 0; translate: 0 24px; }
+.readingWord { opacity: var(--word-opacity, 1); }
+.heroVisual, .largeMapFrame, .closingArt { translate: 0 var(--drift-y, 0px); }
+.connectionsSection .strongLine, .connectionsSection .relatedLine { stroke-dasharray: 1; stroke-dashoffset: calc(1 - var(--connection-progress, 1)); }
+.connectionsSection .weakLine { opacity: var(--connection-progress, 1); }
+
+@media (prefers-reduced-motion: reduce) {
+  :global(html):has(.page) { scroll-behavior: auto; }
+  .revealTarget, .revealPending { opacity: 1; translate: none; transition: none; }
+  .readingWord { opacity: 1; }
+  .heroVisual, .largeMapFrame, .closingArt { translate: none; }
+  .connectionsSection .strongLine, .connectionsSection .relatedLine { stroke-dashoffset: 0; }
+  .connectionsSection .weakLine { opacity: 1; }
+}
